@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astro & Bolt - Cruce Imposible 3D</title>
+
+    <link rel="stylesheet" href="./CSS/style.css">
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        }
+    }
+    </script>
+</head>
+<body>
+
+    <div id="game-container"></div>
+
+    <header id="hud">
+        <div class="logo">ASTRO & BOLT</div>
+
+        <div class="indicadores">
+            <div>Vidas: <span id="vidas">3</span></div>
+            <div>Puntos: <span id="puntos">0</span></div>
+            <div>Metas: <span id="metas">0/3</span></div>
+            <div>Tiempo: <span id="tiempo">120</span>s</div>
+        </div>
+    </header>
+
+    <section id="overlay">
+        <div class="panel">
+            <div class="etiqueta">MISION VORTHEX</div>
+
+            <h1 id="titulo">ASTRO & BOLT</h1>
+            <h2 id="subtitulo">CRUCE IMPOSIBLE 3D</h2>
+
+            <p id="mensaje">
+                Cruza las carreteras y el rio utilizando
+                los troncos flotantes para alcanzar las tres metas.
+            </p>
+
+            <div class="controles">
+                <p>WASD / Flechas: Movimiento</p>
+                <p>ESPACIO: Saltar</p>
+                <p>P / ESC: Pausar</p>
+            </div>
+
+            <button id="btnJugar">COMENZAR MISION</button>
+        </div>
+    </section>
+
+    <section id="pausa" class="hidden">
+        <div class="panel">
+            <h1>JUEGO EN PAUSA</h1>
+            <p>Presiona continuar para regresar al juego.</p>
+            <button id="btnContinuar">CONTINUAR</button>
+        </div>
+    </section>
+
+    <script type="module" src="./main/game3D.js"></script>
+
+</body>
+</html>

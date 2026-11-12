@@ -1,0 +1,231 @@
+/* =========================================
+   01. ESTILOS GENERALES
+========================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #071020;
+    color: #ffffff;
+}
+
+/* =========================================
+   02. ESCENARIO
+========================================= */
+
+#game-container {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+#game-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* =========================================
+   03. INTERFAZ DEL JUGADOR
+========================================= */
+
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+
+    padding: 18px 24px;
+
+    background: linear-gradient(
+        to bottom,
+        rgba(2, 9, 23, 0.95),
+        rgba(2, 9, 23, 0)
+    );
+
+    pointer-events: none;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #43dfff;
+}
+
+.indicadores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.indicadores div {
+    padding: 10px 14px;
+    background: rgba(8, 22, 43, 0.9);
+    border: 1px solid #315b78;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.indicadores span {
+    font-weight: bold;
+    color: #ffffff;
+}
+
+/* =========================================
+   04. PANTALLAS DEL JUEGO
+========================================= */
+
+#overlay,
+#pausa {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: rgba(1, 7, 19, 0.85);
+    backdrop-filter: blur(6px);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.panel {
+    width: min(90%, 490px);
+    padding: 38px;
+
+    text-align: center;
+
+    background: linear-gradient(
+        145deg,
+        #142842,
+        #091426
+    );
+
+    border: 1px solid #39d9ff;
+    border-radius: 20px;
+
+    box-shadow: 0 0 45px rgba(0, 190, 255, 0.15);
+}
+
+.etiqueta {
+    display: inline-block;
+    margin-bottom: 20px;
+    padding: 8px 16px;
+
+    border: 1px solid #ffbd4b;
+    border-radius: 30px;
+
+    color: #ffbd4b;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.panel h1 {
+    margin: 0;
+    color: #4bdeff;
+    font-size: 36px;
+}
+
+.panel h2 {
+    color: #ffbd4b;
+    font-size: 19px;
+}
+
+.panel p {
+    color: #d3dfef;
+    line-height: 1.7;
+}
+
+/* =========================================
+   05. CONTROLES Y BOTONES
+========================================= */
+
+.controles {
+    margin: 24px 0;
+    padding: 14px;
+
+    background: #071427;
+    border: 1px solid #274866;
+    border-radius: 12px;
+}
+
+.controles p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+button {
+    padding: 15px 30px;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #35d5f7;
+    color: #051321;
+
+    font-size: 15px;
+    font-weight: 900;
+
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+button:hover {
+    background: #ffbd4b;
+    transform: scale(1.04);
+}
+
+/* =========================================
+   06. PANTALLAS PEQUENAS
+========================================= */
+
+@media (max-width: 700px) {
+    #hud {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px;
+    }
+
+    .logo {
+        font-size: 18px;
+    }
+
+    .indicadores {
+        gap: 6px;
+    }
+
+    .indicadores div {
+        padding: 7px;
+        font-size: 11px;
+    }
+
+    .panel {
+        padding: 24px;
+    }
+
+    .panel h1 {
+        font-size: 28px;
+    }
+}
