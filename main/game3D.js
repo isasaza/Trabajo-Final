@@ -14,7 +14,7 @@ const CONFIG = {
     largoMapa: 80,
     limiteX: 8,
     metaZ: 77,
-    velocidadCamara: 7,
+    velocidadCamara: 8,
     invulnerabilidad: 1.5
 };
 
@@ -31,7 +31,6 @@ let vidas = CONFIG.vidas;
 let tiempo = CONFIG.tiempo;
 let puntos = 0;
 let metas = 0;
-
 let invulnerable = 0;
 let velocidadVertical = 0;
 let tiempoAnimacion = 0;
@@ -61,7 +60,7 @@ const camara = new THREE.PerspectiveCamera(
     180
 );
 
-camara.position.set(0, 6, -8);
+camara.position.set(0, 7, -9);
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true
@@ -169,6 +168,7 @@ function esfera(r, mat, x = 0, y = 0, z = 0) {
 // =====================================================
 
 const lienzo = document.createElement("canvas");
+
 lienzo.width = 128;
 lienzo.height = 128;
 
@@ -382,7 +382,7 @@ bolt.position.set(1, 1.8, -0.6);
 escena.add(bolt);
 
 // =====================================================
-// 10. VEHICULOS SOBRE LAS CARRETERAS
+// 10. VEHICULOS
 // =====================================================
 
 function crearVehiculo(z, x, velocidad, color) {
@@ -400,14 +400,14 @@ function crearVehiculo(z, x, velocidad, color) {
     for (const lado of [-1, 1]) {
         grupo.add(
             esfera(
-                0.22, MAT.azul,
+                0.22, MAT.negro,
                 lado * 0.75, 0.22, 0.43
             )
         );
 
         grupo.add(
             esfera(
-                0.22, MAT.azul,
+                0.22, MAT.negro,
                 lado * 0.75, 0.22, -0.43
             )
         );
@@ -423,15 +423,25 @@ function crearVehiculo(z, x, velocidad, color) {
     });
 }
 
-// Cada vehiculo se coloca en una fila de carretera
-filasCarretera.forEach((z, i) => {
-    const direccion = i % 2 === 0 ? 1 : -1;
-    const velocidad = direccion * (2.5 + (i % 4) * 0.7);
+// Cuatro carriles activos por autopista.
+// Dos vehiculos por carril: 24 vehiculos en total.
 
-    for (let j = 0; j < 3; j++) {
+const carrilesActivos = [
+    5, 7, 9, 11,
+    17, 19, 21, 23,
+    29, 31, 33, 35
+];
+
+carrilesActivos.forEach((z, i) => {
+    const direccion = i % 2 === 0 ? 1 : -1;
+
+    const velocidad =
+        direccion * (2.5 + (i % 4) * 0.7);
+
+    for (let j = 0; j < 2; j++) {
         crearVehiculo(
             z,
-            -8 + j * 7,
+            -7 + j * 12,
             velocidad,
             [
                 0xff526b,
@@ -476,14 +486,18 @@ function crearTronco(z, x, velocidad) {
     });
 }
 
+// Dos troncos por fila de agua.
+
 filasAgua.forEach((z, i) => {
     const direccion = i % 2 === 0 ? 1 : -1;
-    const velocidad = direccion * (1.4 + (i % 4) * 0.25);
 
-    for (let j = 0; j < 3; j++) {
+    const velocidad =
+        direccion * (1.4 + (i % 4) * 0.25);
+
+    for (let j = 0; j < 2; j++) {
         crearTronco(
             z,
-            -8 + j * 7,
+            -7 + j * 12,
             velocidad
         );
     }
@@ -542,8 +556,9 @@ function actualizarHUD() {
     UI.puntos.textContent = puntos;
     UI.metas.textContent = metas + "/3";
     UI.tiempo.textContent = Math.ceil(tiempo);
+
     UI.camaraModo.textContent =
-        modoCamara === 0 ? "Elevada" : "Personaje";
+        modoCamara === 0 ? "Elevada" : "Primera persona";
 }
 
 function cambiarEstado(nuevoEstado) {
@@ -590,6 +605,7 @@ function reiniciar() {
     reaparecer();
     actualizarHUD();
     cambiarEstado(ESTADOS.JUGANDO);
+
     reloj.getDelta();
 }
 
@@ -609,7 +625,10 @@ function finalizar(victoria, mensaje) {
     UI.mensaje.textContent = mensaje;
     UI.boton.textContent = "REINICIAR MISION";
 
-    reproducirSonido(victoria ? 880 : 180, 0.35);
+    reproducirSonido(
+        victoria ? 880 : 180,
+        0.35
+    );
 }
 
 function perderVida() {
@@ -653,6 +672,7 @@ window.addEventListener("keydown", evento => {
         evento.preventDefault();
     }
 
+    // Cambiar camara con Tab
     if (tecla === "tab") {
         if (!evento.repeat) {
             modoCamara = (modoCamara + 1) % 2;
@@ -663,6 +683,7 @@ window.addEventListener("keydown", evento => {
 
     teclas[tecla] = true;
 
+    // Pausar
     if (
         (tecla === "p" || tecla === "escape") &&
         !evento.repeat
@@ -675,6 +696,7 @@ window.addEventListener("keydown", evento => {
         }
     }
 
+    // Saltar
     if (
         tecla === " " &&
         !evento.repeat &&
@@ -740,7 +762,10 @@ function reproducirSonido(frecuencia, duracion) {
             ahora
         );
 
-        ganancia.gain.setValueAtTime(0.09, ahora);
+        ganancia.gain.setValueAtTime(
+            0.09,
+            ahora
+        );
 
         ganancia.gain.exponentialRampToValueAtTime(
             0.001,
@@ -848,6 +873,7 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
+    // Gravedad y salto
     if (
         astro.position.y > 0 ||
         velocidadVertical > 0
@@ -878,13 +904,18 @@ function actualizarJugador(dt) {
         invulnerable - dt
     );
 
+    // Ocultar a Astro en primera persona.
+    // En tercera persona conserva el parpadeo de proteccion.
     astro.visible =
-        invulnerable <= 0 ||
-        Math.floor(invulnerable * 10) % 2 === 0;
+        modoCamara === 0 &&
+        (
+            invulnerable <= 0 ||
+            Math.floor(invulnerable * 10) % 2 === 0
+        );
 }
 
 // =====================================================
-// 18. MOVIMIENTO Y RECICLAJE DE OBJETOS
+// 18. MOVIMIENTO Y RECICLAJE
 // =====================================================
 
 function actualizarObjetos(dt) {
@@ -935,7 +966,7 @@ function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-    // Colision con vehiculos
+    // Vehiculos
     if (astro.position.y < 0.65) {
         for (const vehiculo of vehiculos) {
             const diferenciaX = Math.abs(
@@ -956,7 +987,7 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // Rio y troncos
+    // Agua y troncos
     const filaActual = Math.round(z);
 
     if (filasAgua.includes(filaActual)) {
@@ -1039,20 +1070,22 @@ function comprobarColisiones(dt) {
 }
 
 // =====================================================
-// 20. CAMARA CON DOS MODOS
+// 20. CAMARA ELEVADA Y PRIMERA PERSONA
 // =====================================================
 
 const posicionCamara = new THREE.Vector3();
 const objetivoCamara = new THREE.Vector3();
 const miradaCamara = new THREE.Vector3(0, 1, 5);
 
+let fovActual = 70;
+
 function actualizarCamara(dt) {
     if (modoCamara === 0) {
-        // Vista elevada en tercera persona
+        // Vista elevada detras de Astro
         posicionCamara.set(
             astro.position.x,
-            astro.position.y + 6,
-            astro.position.z - 8
+            astro.position.y + 7,
+            astro.position.z - 9
         );
 
         objetivoCamara.set(
@@ -1060,14 +1093,12 @@ function actualizarCamara(dt) {
             astro.position.y + 1,
             astro.position.z + 8
         );
-
-        camara.fov = 70;
     } else {
-        // Vista cercana al personaje
+        // Primera persona: camara a la altura de los ojos
         posicionCamara.set(
             astro.position.x,
-            astro.position.y + 2.2,
-            astro.position.z - 1.8
+            astro.position.y + 1.7,
+            astro.position.z + 0.15
         );
 
         objetivoCamara.set(
@@ -1075,11 +1106,7 @@ function actualizarCamara(dt) {
             astro.position.y + 1.7,
             astro.position.z + 12
         );
-
-        camara.fov = 85;
     }
-
-    camara.updateProjectionMatrix();
 
     const suavidad =
         1 - Math.exp(-CONFIG.velocidadCamara * dt);
@@ -1095,6 +1122,20 @@ function actualizarCamara(dt) {
     );
 
     camara.lookAt(miradaCamara);
+
+    // Cambio suave del campo de vision
+    const fovObjetivo = modoCamara === 0 ? 70 : 80;
+    const nuevoFov = THREE.MathUtils.lerp(
+        fovActual,
+        fovObjetivo,
+        suavidad
+    );
+
+    if (Math.abs(nuevoFov - fovActual) > 0.001) {
+        fovActual = nuevoFov;
+        camara.fov = fovActual;
+        camara.updateProjectionMatrix();
+    }
 }
 
 // =====================================================
@@ -1115,6 +1156,9 @@ function actualizarDecoracion(dt) {
     );
 
     bolt.rotation.y += dt;
+
+    // Ocultar Bolt en primera persona
+    bolt.visible = modoCamara === 0;
 
     objetivos.forEach(objetivo => {
         if (!objetivo.activada) {
