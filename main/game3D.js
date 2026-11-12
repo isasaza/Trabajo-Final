@@ -15,8 +15,7 @@ const CONFIG = {
     limiteX: 8,
     metaZ: 77,
     velocidadCamara: 8,
-    invulnerabilidad: 1.5,
-    limiteObjetos: 23
+    invulnerabilidad: 1.5
 };
 
 const ESTADOS = {
@@ -266,49 +265,15 @@ for (let z = 0; z < CONFIG.largoMapa; z++) {
 // =====================================================
 
 function construirNivel() {
-
-    // Construccion principal del mapa
     for (let z = 0; z < mapa.length; z++) {
         for (let c = 0; c < mapa[z].length; c++) {
-
             const tipo = mapa[z][c];
             const x = c - 9;
 
             if (tipo === "B") {
-
-                // Carreteras abiertas sin paredes laterales
-                if (filasCarretera.includes(z)) {
-                    escena.add(
-                        caja(
-                            1, 0.2, 1,
-                            MAT.carretera,
-                            x, -0.15, z
-                        )
-                    );
-                    continue;
-                }
-
-                // Rios abiertos sin paredes laterales
-                if (filasAgua.includes(z)) {
-                    escena.add(
-                        caja(
-                            1, 0.2, 1,
-                            MAT.agua,
-                            x, -0.15, z
-                        )
-                    );
-                    continue;
-                }
-
-                // Barreras solamente en zonas seguras
                 escena.add(
-                    caja(
-                        1, 0.7, 1,
-                        MAT.metal,
-                        x, 0.25, z
-                    )
+                    caja(1, 0.7, 1, MAT.metal, x, 0.25, z)
                 );
-
                 continue;
             }
 
@@ -319,48 +284,14 @@ function construirNivel() {
             if (tipo === "M") mat = MAT_META;
 
             escena.add(
-                caja(
-                    1, 0.2, 1,
-                    mat,
-                    x, -0.15, z
-                )
-            );
-        }
-    }
-
-    // Extender carreteras de lado a lado
-    for (const z of filasCarretera) {
-        for (const lado of [-1, 1]) {
-            escena.add(
-                caja(
-                    15, 0.2, 1,
-                    MAT.carretera,
-                    lado * 16.5,
-                    -0.15,
-                    z
-                )
-            );
-        }
-    }
-
-    // Extender rios de lado a lado
-    for (const z of filasAgua) {
-        for (const lado of [-1, 1]) {
-            escena.add(
-                caja(
-                    15, 0.2, 1,
-                    MAT.agua,
-                    lado * 16.5,
-                    -0.15,
-                    z
-                )
+                caja(1, 0.2, 1, mat, x, -0.15, z)
             );
         }
     }
 
     // Lineas de separacion de carriles
     for (const z of filasCarretera) {
-        for (let x = -21; x <= 21; x += 3) {
+        for (let x = -7; x <= 7; x += 3) {
             escena.add(
                 caja(
                     1.4, 0.025, 0.07,
@@ -371,21 +302,8 @@ function construirNivel() {
         }
     }
 
-    // Edificios solo en zonas seguras
+    // Edificios laterales
     for (let z = 0; z < CONFIG.largoMapa; z += 5) {
-
-        const cercaDeCarretera = filasCarretera.some(
-            fila => Math.abs(fila - z) < 3
-        );
-
-        const cercaDeRio = filasAgua.some(
-            fila => Math.abs(fila - z) < 3
-        );
-
-        if (cercaDeCarretera || cercaDeRio) {
-            continue;
-        }
-
         for (const lado of [-1, 1]) {
             const altura = 3 + (z % 6);
 
@@ -506,7 +424,7 @@ function crearVehiculo(z, x, velocidad, color) {
 }
 
 // Cuatro carriles activos por autopista.
-// Dos vehiculos por carril: 24 en total.
+// Dos vehiculos por carril: 24 vehiculos en total.
 
 const carrilesActivos = [
     5, 7, 9, 11,
@@ -568,7 +486,8 @@ function crearTronco(z, x, velocidad) {
     });
 }
 
-// Dos troncos por fila de agua
+// Dos troncos por fila de agua.
+
 filasAgua.forEach((z, i) => {
     const direccion = i % 2 === 0 ? 1 : -1;
 
@@ -686,6 +605,7 @@ function reiniciar() {
     reaparecer();
     actualizarHUD();
     cambiarEstado(ESTADOS.JUGANDO);
+
     reloj.getDelta();
 }
 
@@ -752,6 +672,7 @@ window.addEventListener("keydown", evento => {
         evento.preventDefault();
     }
 
+    // Cambiar camara con Tab
     if (tecla === "tab") {
         if (!evento.repeat) {
             modoCamara = (modoCamara + 1) % 2;
@@ -762,6 +683,7 @@ window.addEventListener("keydown", evento => {
 
     teclas[tecla] = true;
 
+    // Pausar
     if (
         (tecla === "p" || tecla === "escape") &&
         !evento.repeat
@@ -774,6 +696,7 @@ window.addEventListener("keydown", evento => {
         }
     }
 
+    // Saltar
     if (
         tecla === " " &&
         !evento.repeat &&
@@ -920,8 +843,8 @@ function actualizarJugador(dt) {
 
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
-    if (teclas["a"] || teclas["arrowleft"]) dx--;
-    if (teclas["d"] || teclas["arrowright"]) dx++;
+    if (teclas["d"] || teclas["arrowleft"]) dx--;
+    if (teclas["a"] || teclas["arrowright"]) dx++;
 
     const longitud = Math.hypot(dx, dz);
 
@@ -950,6 +873,7 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
+    // Gravedad y salto
     if (
         astro.position.y > 0 ||
         velocidadVertical > 0
@@ -980,6 +904,8 @@ function actualizarJugador(dt) {
         invulnerable - dt
     );
 
+    // Ocultar a Astro en primera persona.
+    // En tercera persona conserva el parpadeo de proteccion.
     astro.visible =
         modoCamara === 0 &&
         (
@@ -999,18 +925,16 @@ function actualizarObjetos(dt) {
 
         if (
             vehiculo.velocidad > 0 &&
-            vehiculo.mesh.position.x > CONFIG.limiteObjetos
+            vehiculo.mesh.position.x > 13
         ) {
-            vehiculo.mesh.position.x =
-                -CONFIG.limiteObjetos;
+            vehiculo.mesh.position.x = -13;
         }
 
         if (
             vehiculo.velocidad < 0 &&
-            vehiculo.mesh.position.x < -CONFIG.limiteObjetos
+            vehiculo.mesh.position.x < -13
         ) {
-            vehiculo.mesh.position.x =
-                CONFIG.limiteObjetos;
+            vehiculo.mesh.position.x = 13;
         }
     }
 
@@ -1020,18 +944,16 @@ function actualizarObjetos(dt) {
 
         if (
             tronco.velocidad > 0 &&
-            tronco.mesh.position.x > CONFIG.limiteObjetos
+            tronco.mesh.position.x > 13
         ) {
-            tronco.mesh.position.x =
-                -CONFIG.limiteObjetos;
+            tronco.mesh.position.x = -13;
         }
 
         if (
             tronco.velocidad < 0 &&
-            tronco.mesh.position.x < -CONFIG.limiteObjetos
+            tronco.mesh.position.x < -13
         ) {
-            tronco.mesh.position.x =
-                CONFIG.limiteObjetos;
+            tronco.mesh.position.x = 13;
         }
     }
 }
@@ -1044,7 +966,7 @@ function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-    // Colision con vehiculos
+    // Vehiculos
     if (astro.position.y < 0.65) {
         for (const vehiculo of vehiculos) {
             const diferenciaX = Math.abs(
@@ -1159,6 +1081,7 @@ let fovActual = 70;
 
 function actualizarCamara(dt) {
     if (modoCamara === 0) {
+        // Vista elevada detras de Astro
         posicionCamara.set(
             astro.position.x,
             astro.position.y + 7,
@@ -1171,7 +1094,7 @@ function actualizarCamara(dt) {
             astro.position.z + 8
         );
     } else {
-        // Primera persona desde los ojos de Astro
+        // Primera persona: camara a la altura de los ojos
         posicionCamara.set(
             astro.position.x,
             astro.position.y + 1.7,
@@ -1200,8 +1123,8 @@ function actualizarCamara(dt) {
 
     camara.lookAt(miradaCamara);
 
+    // Cambio suave del campo de vision
     const fovObjetivo = modoCamara === 0 ? 70 : 80;
-
     const nuevoFov = THREE.MathUtils.lerp(
         fovActual,
         fovObjetivo,
@@ -1233,6 +1156,8 @@ function actualizarDecoracion(dt) {
     );
 
     bolt.rotation.y += dt;
+
+    // Ocultar Bolt en primera persona
     bolt.visible = modoCamara === 0;
 
     objetivos.forEach(objetivo => {
