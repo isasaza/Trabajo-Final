@@ -2,31 +2,56 @@ import * as THREE from "three";
 import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
 
 // ============================================================
-// 1. CONFIGURACION GENERAL
+// 1. CONFIGURACION
 // ============================================================
 
 const CONFIG = {
     vidas: 3,
     tiempo: 240,
     velocidadJugador: 6,
-    velocidadSalto: 7,
+    salto: 7,
     gravedad: 18,
-    limiteJugadorX: 8,
-    anchoCarretera: 44,
-    limiteVehiculos: 25,
+    limiteX: 8,
+    anchoMapa: 20,
+    anchoCarretera: 52,
+    limiteVehiculos: 29,
     invulnerabilidad: 1.5,
-    velocidadCamara: 7
+    camaraSuavidad: 7
 };
 
-const ESTADO = {
-    INICIO: "inicio",
-    JUGANDO: "jugando",
-    PAUSA: "pausa",
-    DERROTA: "derrota",
-    VICTORIA: "victoria"
-};
+const ETAPAS = [
+    {
+        inicio: 0,
+        final: 29,
+        gema: 27,
+        zonas: [
+            { tipo: "carretera", inicio: 5, final: 10, velocidad: 3.5 },
+            { tipo: "agua", inicio: 12, final: 17, velocidad: 1.6 },
+            { tipo: "carretera", inicio: 19, final: 24, velocidad: 4.2 }
+        ]
+    },
+    {
+        inicio: 29,
+        final: 59,
+        gema: 57,
+        zonas: [
+            { tipo: "carretera", inicio: 32, final: 38, velocidad: 5.5 },
+            { tipo: "agua", inicio: 40, final: 46, velocidad: 2.2 },
+            { tipo: "carretera", inicio: 48, final: 54, velocidad: 6.2 }
+        ]
+    },
+    {
+        inicio: 59,
+        final: 91,
+        gema: null,
+        zonas: [
+            { tipo: "carretera", inicio: 62, final: 69, velocidad: 7.5 },
+            { tipo: "sierras", inicio: 72, final: 83, velocidad: 3.4 }
+        ]
+    }
+];
 
-let estado = ESTADO.INICIO;
+let estado = "inicio";
 let vidas = CONFIG.vidas;
 let puntos = 0;
 let gemas = 0;
@@ -34,83 +59,67 @@ let tiempo = CONFIG.tiempo;
 let etapaActual = 0;
 let modoCamara = 0;
 let invulnerable = 0;
-let velocidadVertical = 0;
+let velocidadY = 0;
 let enSuelo = true;
-let ultimoTiempo = 0;
 let tiempoGlobal = 0;
-let checkpoint = new THREE.Vector3(0, 0, 0);
+let ultimoTiempo = 0;
 
 const teclas = {};
+const modelos = {};
 const vehiculos = [];
 const troncos = [];
 const sierras = [];
 const gemasObjetos = [];
-const decoraciones = [];
 const naves = [];
-const particulas = [];
-const zonasAgua = [];
-const zonasCarretera = [];
-const modelos = {};
+const aguaZonas = [];
+const gruposEtapa = [];
+const checkpoint = new THREE.Vector3(0, 0, 0);
 
-const loader = new GLTFLoader();
+let trofeo = null;
 
 // ============================================================
-// 2. ELEMENTOS HTML
+// 2. HTML
 // ============================================================
 
-const contenedor =
-    document.getElementById("game-container") ||
-    document.body;
+const obtener = id => document.getElementById(id);
 
-const hud = {
-    vidas: document.getElementById("vidas"),
-    puntos: document.getElementById("puntos"),
-    metas: document.getElementById("metas"),
-    tiempo: document.getElementById("tiempo"),
-    camara: document.getElementById("camaraModo")
-};
-
-const overlay = document.getElementById("overlay");
-const titulo = document.getElementById("titulo");
-const subtitulo = document.getElementById("subtitulo");
-const mensaje = document.getElementById("mensaje");
-const btnJugar = document.getElementById("btnJugar");
-const pausaPanel = document.getElementById("pausa");
-const btnContinuar = document.getElementById("btnContinuar");
+const contenedor = obtener("game-container") || document.body;
+const overlay = obtener("overlay");
+const pausaPanel = obtener("pausa");
 
 function actualizarHUD() {
-    if (hud.vidas) hud.vidas.textContent = vidas;
-    if (hud.puntos) hud.puntos.textContent = puntos;
-    if (hud.metas) hud.metas.textContent = `${gemas}/2`;
-    if (hud.tiempo) hud.tiempo.textContent = Math.ceil(tiempo);
-    if (hud.camara) {
-        hud.camara.textContent =
-            modoCamara === 0 ? "Elevada" : "Primera persona";
+    const valores = {
+        vidas,
+        puntos,
+        metas: `${gemas}/2`,
+        tiempo: `${Math.ceil(tiempo)}s`,
+        camaraModo: modoCamara === 0 ? "Elevada" : "Primera persona"
+    };
+
+    for (const [id, valor] of Object.entries(valores)) {
+        const elemento = obtener(id);
+        if (elemento) elemento.textContent = valor;
     }
 }
 
-function mostrarOverlay(t, s, m, boton = "Jugar") {
-    if (titulo) titulo.textContent = t;
-    if (subtitulo) subtitulo.textContent = s;
-    if (mensaje) mensaje.textContent = m;
-    if (btnJugar) btnJugar.textContent = boton;
+function mostrarMenu(titulo, subtitulo, mensaje, boton) {
+    if (obtener("titulo")) obtener("titulo").textContent = titulo;
+    if (obtener("subtitulo")) obtener("subtitulo").textContent = subtitulo;
+    if (obtener("mensaje")) obtener("mensaje").textContent = mensaje;
+    if (obtener("btnJugar")) obtener("btnJugar").textContent = boton;
     if (overlay) overlay.style.display = "flex";
 }
 
-function ocultarOverlay() {
-    if (overlay) overlay.style.display = "none";
-}
-
 // ============================================================
-// 3. ESCENA THREE.JS
+// 3. ESCENA, CAMARA Y RENDERIZADO
 // ============================================================
 
 const escena = new THREE.Scene();
-escena.background = new THREE.Color(0x08051c);
-escena.fog = new THREE.FogExp2(0x110b32, 0.007);
+escena.background = new THREE.Color(0x09091e);
+escena.fog = new THREE.FogExp2(0x14102c, 0.004);
 
 const camara = new THREE.PerspectiveCamera(
-    70,
+    65,
     window.innerWidth / window.innerHeight,
     0.1,
     500
@@ -131,102 +140,94 @@ renderer.toneMappingExposure = 1.35;
 
 contenedor.appendChild(renderer.domElement);
 
-const luzAmbiente = new THREE.HemisphereLight(
-    0x8b8dff,
-    0x111025,
-    2.0
-);
-escena.add(luzAmbiente);
+const ambiente = new THREE.HemisphereLight(0xadb9ff, 0x141025, 2.2);
+escena.add(ambiente);
 
-const luzPrincipal = new THREE.DirectionalLight(
-    0xbfcaff,
-    2.2
-);
-luzPrincipal.position.set(-15, 35, 25);
-luzPrincipal.castShadow = true;
-luzPrincipal.shadow.mapSize.set(2048, 2048);
-luzPrincipal.shadow.camera.left = -50;
-luzPrincipal.shadow.camera.right = 50;
-luzPrincipal.shadow.camera.top = 80;
-luzPrincipal.shadow.camera.bottom = -80;
-escena.add(luzPrincipal);
+const sol = new THREE.DirectionalLight(0xc5d7ff, 2.4);
+sol.position.set(-15, 35, 20);
+sol.castShadow = true;
+sol.shadow.mapSize.set(2048, 2048);
+sol.shadow.camera.left = -35;
+sol.shadow.camera.right = 35;
+sol.shadow.camera.top = 55;
+sol.shadow.camera.bottom = -55;
+escena.add(sol);
 
 // ============================================================
 // 4. MATERIALES
 // ============================================================
 
+function material(color, metal = 0, rugosidad = 0.8) {
+    return new THREE.MeshStandardMaterial({
+        color,
+        metalness: metal,
+        roughness: rugosidad
+    });
+}
+
+function neon(color, intensidad = 1.7) {
+    return new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: intensidad
+    });
+}
+
 const MAT = {
-    suelo: new THREE.MeshStandardMaterial({
-        color: 0x172344,
-        roughness: 0.85
-    }),
-    carretera: new THREE.MeshStandardMaterial({
-        color: 0x151522,
-        roughness: 0.75
-    }),
+    suelo: material(0x24314a),
+    acera: material(0x38465b),
+    carretera: material(0x101623, 0.2),
+    linea: neon(0x85dfff, 0.65),
+    amarillo: neon(0xf7dc8c, 0.45),
     agua: new THREE.MeshStandardMaterial({
-        color: 0x0875b4,
-        metalness: 0.55,
-        roughness: 0.2
+        color: 0x08649a,
+        emissive: 0x003454,
+        emissiveIntensity: 0.35,
+        metalness: 0.4,
+        roughness: 0.24
     }),
-    borde: new THREE.MeshStandardMaterial({
-        color: 0x253154,
-        metalness: 0.5
-    }),
-    neonAzul: new THREE.MeshStandardMaterial({
-        color: 0x00cfff,
-        emissive: 0x00aaff,
-        emissiveIntensity: 2
-    }),
-    neonRosa: new THREE.MeshStandardMaterial({
-        color: 0xff4bd8,
-        emissive: 0xff00b7,
-        emissiveIntensity: 2
-    }),
-    neonAmarillo: new THREE.MeshStandardMaterial({
-        color: 0xffe781,
-        emissive: 0xffc300,
-        emissiveIntensity: 1.3
-    }),
-    madera: new THREE.MeshStandardMaterial({
-        color: 0x805333,
-        roughness: 0.9
-    }),
-    metal: new THREE.MeshStandardMaterial({
-        color: 0x65718c,
-        metalness: 0.8,
-        roughness: 0.3
-    })
+    bordeAgua: neon(0x00d7ff),
+    madera: material(0x8a583a),
+    maderaOscura: material(0x523825),
+    metal: material(0x64748b, 0.75, 0.3),
+    rosa: neon(0xff49c7),
+    azul: neon(0x00cfff),
+    oro: neon(0xffcc55)
 };
 
-function caja(ancho, alto, fondo, material, x, y, z, padre = escena) {
-    const objeto = new THREE.Mesh(
+function caja(ancho, alto, fondo, mat, x, y, z, padre = escena) {
+    const m = new THREE.Mesh(
         new THREE.BoxGeometry(ancho, alto, fondo),
-        material
+        mat
     );
-    objeto.position.set(x, y, z);
-    objeto.castShadow = true;
-    objeto.receiveShadow = true;
-    padre.add(objeto);
-    return objeto;
+
+    m.position.set(x, y, z);
+    m.receiveShadow = true;
+    m.castShadow = alto > 0.2;
+    padre.add(m);
+
+    return m;
 }
 
-function esfera(radio, material, x, y, z, padre = escena) {
-    const objeto = new THREE.Mesh(
-        new THREE.SphereGeometry(radio, 16, 12),
-        material
+function esfera(r, mat, x, y, z, padre = escena) {
+    const m = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 16, 12),
+        mat
     );
-    objeto.position.set(x, y, z);
-    objeto.castShadow = true;
-    padre.add(objeto);
-    return objeto;
+
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    padre.add(m);
+    return m;
 }
 
 // ============================================================
-// 5. CARGA DE MODELOS GLB
+// 5. MODELOS DESCARGADOS
 // ============================================================
 
-const RUTAS = {
+const loader = new GLTFLoader();
+
+const rutas = {
     carretera: "./modelos/road_tile.glb",
     farola: "./modelos/street_lamp.glb",
     senal: "./modelos/sign_tall.glb",
@@ -234,100 +235,75 @@ const RUTAS = {
     maquina: "./modelos/vending_machine.glb"
 };
 
-async function cargarModelo(nombre, ruta) {
-    try {
-        const gltf = await loader.loadAsync(ruta);
-        modelos[nombre] = gltf.scene;
-
-        gltf.scene.traverse(obj => {
-            if (obj.isMesh) {
-                obj.castShadow = true;
-                obj.receiveShadow = true;
-            }
-        });
-
-        console.log("Modelo cargado:", nombre);
-    } catch (error) {
-        modelos[nombre] = null;
-        console.warn("No se pudo cargar:", ruta, error);
-    }
-}
-
 async function cargarModelos() {
     await Promise.all(
-        Object.entries(RUTAS).map(([nombre, ruta]) =>
-            cargarModelo(nombre, ruta)
-        )
+        Object.entries(rutas).map(async ([nombre, ruta]) => {
+            try {
+                const gltf = await loader.loadAsync(ruta);
+                modelos[nombre] = gltf.scene;
+                console.log("Modelo listo:", nombre);
+            } catch (error) {
+                modelos[nombre] = null;
+                console.warn("No se encontro:", ruta);
+            }
+        })
     );
 }
 
-// Centra un modelo y ajusta su tamaño de manera uniforme.
-// Esto evita depender de las unidades originales del GLB.
-
-function colocarModelo(nombre, x, y, z, anchoDeseado, altoMaximo = null) {
+function colocarModelo(nombre, padre, x, z, ancho, altoMaximo = 8) {
     if (!modelos[nombre]) return null;
 
     const grupo = new THREE.Group();
     const copia = modelos[nombre].clone(true);
 
     grupo.add(copia);
-    escena.add(grupo);
+    padre.add(grupo);
 
     copia.updateMatrixWorld(true);
 
     const limites = new THREE.Box3().setFromObject(copia);
-    const dimensiones = limites.getSize(new THREE.Vector3());
+    const tam = limites.getSize(new THREE.Vector3());
 
-    if (dimensiones.x < 0.0001 ||
-        dimensiones.y < 0.0001 ||
-        dimensiones.z < 0.0001) {
-        escena.remove(grupo);
+    if (Math.max(tam.x, tam.y, tam.z) < 0.0001) {
+        padre.remove(grupo);
         return null;
     }
 
-    const horizontal = Math.max(dimensiones.x, dimensiones.z);
-
-    let escala = anchoDeseado / horizontal;
-
-    if (altoMaximo !== null) {
-        escala = Math.min(
-            escala,
-            altoMaximo / dimensiones.y
-        );
-    }
+    const escala = Math.min(
+        ancho / Math.max(tam.x, tam.z, 0.001),
+        altoMaximo / Math.max(tam.y, 0.001)
+    );
 
     copia.scale.setScalar(escala);
     copia.updateMatrixWorld(true);
 
-    const cajaFinal = new THREE.Box3().setFromObject(copia);
-    const centro = cajaFinal.getCenter(new THREE.Vector3());
+    const final = new THREE.Box3().setFromObject(copia);
+    const centro = final.getCenter(new THREE.Vector3());
 
     copia.position.x -= centro.x;
     copia.position.z -= centro.z;
-    copia.position.y -= cajaFinal.min.y;
+    copia.position.y -= final.min.y;
 
-    grupo.position.set(x, y, z);
+    grupo.position.set(x, 0.15, z);
 
     return grupo;
 }
 
 // ============================================================
-// 6. GALAXIA Y ESTRELLAS
+// 6. GALAXIA
 // ============================================================
 
 function crearGalaxia() {
-    const cantidad = 1600;
     const posiciones = [];
 
-    for (let i = 0; i < cantidad; i++) {
+    for (let i = 0; i < 1800; i++) {
         const angulo = Math.random() * Math.PI * 2;
-        const radio = 90 + Math.random() * 170;
-        const altura = 20 + Math.random() * 140;
+        const radio = 95 + Math.random() * 190;
 
         posiciones.push(
             Math.cos(angulo) * radio,
-            altura,
-            Math.sin(angulo) * radio + 35
+            25 + Math.random() * 150,
+            Math.sin(angulo) * radio + 45
         );
     }
 
@@ -338,440 +314,426 @@ function crearGalaxia() {
         new THREE.Float32BufferAttribute(posiciones, 3)
     );
 
-    const estrellas = new THREE.Points(
+    escena.add(new THREE.Points(
         geometria,
         new THREE.PointsMaterial({
-            color: 0xdacbff,
-            size: 0.8,
-            sizeAttenuation: true
+            color: 0xe4d6ff,
+            size: 0.85
         })
+    ));
+
+    const planeta = esfera(
+        16,
+        material(0x6c42b6),
+        -105,
+        65,
+        125
     );
 
-    escena.add(estrellas);
-
-    const planeta = new THREE.Mesh(
-        new THREE.SphereGeometry(18, 32, 24),
-        new THREE.MeshStandardMaterial({
-            color: 0x6742b8,
-            emissive: 0x29105b,
-            emissiveIntensity: 1,
-            roughness: 0.85
-        })
-    );
-
-    planeta.position.set(-100, 65, 135);
-    escena.add(planeta);
+    planeta.castShadow = false;
 
     const anillo = new THREE.Mesh(
-        new THREE.TorusGeometry(24, 1.4, 8, 80),
-        MAT.neonAzul
+        new THREE.TorusGeometry(23, 1.1, 8, 72),
+        MAT.azul
     );
 
     anillo.position.copy(planeta.position);
-    anillo.rotation.x = 1.1;
+    anillo.rotation.x = 1.15;
     escena.add(anillo);
 }
 
-// ============================================================
-// 7. NAVES VOLADORAS
-// ============================================================
+function crearNaves() {
+    for (let i = 0; i < 7; i++) {
+        const nave = new THREE.Group();
 
-function crearNave(x, y, z, velocidad) {
-    const grupo = new THREE.Group();
-
-    const cuerpo = new THREE.Mesh(
-        new THREE.ConeGeometry(1.2, 3.5, 4),
-        MAT.metal
-    );
-    cuerpo.rotation.x = Math.PI / 2;
-    grupo.add(cuerpo);
-
-    caja(4, 0.15, 0.8, MAT.neonAzul, 0, 0, 0, grupo);
-    caja(1.5, 0.15, 1.3, MAT.neonRosa, 0, 0.2, 0, grupo);
-
-    grupo.position.set(x, y, z);
-    escena.add(grupo);
-
-    naves.push({
-        grupo,
-        velocidad,
-        origenY: y,
-        fase: Math.random() * Math.PI * 2
-    });
-}
-
-function crearTraficoAereo() {
-    for (let i = 0; i < 9; i++) {
-        crearNave(
-            -75 + Math.random() * 150,
-            18 + Math.random() * 25,
-            Math.random() * 100,
-            4 + Math.random() * 8
+        const cuerpo = new THREE.Mesh(
+            new THREE.ConeGeometry(0.8, 2.5, 4),
+            MAT.metal
         );
+
+        cuerpo.rotation.x = Math.PI / 2;
+        nave.add(cuerpo);
+
+        caja(3.3, 0.1, 0.55, MAT.azul, 0, 0, 0, nave);
+
+        nave.position.set(
+            -70 + Math.random() * 140,
+            17 + Math.random() * 22,
+            Math.random() * 110
+        );
+
+        escena.add(nave);
+
+        naves.push({
+            objeto: nave,
+            velocidad: 5 + Math.random() * 7,
+            altura: nave.position.y,
+            fase: Math.random() * 6
+        });
     }
 }
 
 // ============================================================
-// 8. SUELO Y CARRETERAS
+// 7. SUELO Y MAPA
 // ============================================================
 
-function crearSuelo(zInicio, zFinal) {
-    const longitud = zFinal - zInicio;
+function crearSuelo(inicio, final, padre) {
+    const longitud = final - inicio;
 
     caja(
-        65,
-        0.3,
+        CONFIG.anchoMapa,
+        0.35,
         longitud,
         MAT.suelo,
         0,
-        -0.3,
-        (zInicio + zFinal) / 2
+        -0.25,
+        (inicio + final) / 2,
+        padre
     );
+
+    // Acera izquierda y derecha, no toda una plataforma azul.
+
+    for (const lado of [-1, 1]) {
+        caja(
+            2.4,
+            0.18,
+            longitud,
+            MAT.acera,
+            lado * 11.2,
+            -0.12,
+            (inicio + final) / 2,
+            padre
+        );
+    }
 }
 
-function crearCarretera(zInicio, zFinal, velocidad = 4) {
-    zonasCarretera.push({
-        inicio: zInicio,
-        final: zFinal,
-        velocidad
-    });
+function crearCarretera(inicio, final, velocidad, padre) {
+    const centro = (inicio + final) / 2;
+    const longitud = final - inicio;
 
-    const largo = zFinal - zInicio;
-    const centroZ = (zInicio + zFinal) / 2;
-
-    // La carretera atraviesa el escenario completo.
-    // Los carros se reciclan fuera de la zona visible.
+    // Una avenida ancha que continua hacia los lados.
+    // No se construyen edificios dentro de este corredor.
 
     caja(
         CONFIG.anchoCarretera,
         0.12,
-        largo,
+        longitud,
         MAT.carretera,
         0,
-        0.02,
-        centroZ
+        -0.04,
+        centro,
+        padre
     );
 
-    // Bordes luminosos en las entradas de cada tramo.
+    // Bordes de la carretera.
 
-    for (const z of [zInicio + 0.15, zFinal - 0.15]) {
+    for (const z of [inicio, final]) {
         caja(
             CONFIG.anchoCarretera,
             0.035,
-            0.09,
-            MAT.neonAzul,
+            0.08,
+            MAT.linea,
             0,
-            0.12,
-            z
+            0.04,
+            z,
+            padre
         );
     }
 
-    // Marcas de carril a lo ancho de la avenida.
+    // Lineas discontinuas de carril.
 
-    for (let z = zInicio + 1.5; z < zFinal - 0.5; z += 2) {
-        for (let x = -20; x <= 20; x += 4) {
+    for (let z = inicio + 1.4; z < final - 0.5; z += 2.1) {
+        for (let x = -24; x < 25; x += 5) {
             caja(
-                1.5,
-                0.025,
-                0.06,
-                MAT.neonAmarillo,
+                2,
+                0.015,
+                0.055,
+                MAT.amarillo,
                 x,
-                0.105,
-                z
+                0.03,
+                z,
+                padre
             );
         }
     }
 
-    // Decoracion exclusivamente en zonas seguras
-    // antes y despues de la carretera.
+    // Carriles con espacios para que el jugador pueda cruzar.
 
-    decorarZonaSegura(zInicio - 1.2);
-    decorarZonaSegura(zFinal + 1.2);
+    let fila = 0;
 
-    // Carriles activos, dejando espacios entre ellos.
-
-    for (let z = zInicio + 1.2; z < zFinal - 0.5; z += 2.2) {
-        const direccion =
-            Math.floor((z - zInicio) / 2.2) % 2 === 0 ? 1 : -1;
+    for (let z = inicio + 1.1; z < final - 0.4; z += 2.3) {
+        const direccion = fila % 2 === 0 ? 1 : -1;
 
         crearVehiculo(
-            -10 + Math.random() * 8,
+            -14 + Math.random() * 8,
             z,
-            velocidad * direccion
+            velocidad * direccion,
+            padre
         );
 
         crearVehiculo(
-            8 + Math.random() * 8,
+            9 + Math.random() * 8,
             z,
-            velocidad * direccion
-        );
-    }
-}
-
-function decorarZonaSegura(z) {
-    // Las farolas se ubican lejos de la trayectoria
-    // de los carros y no bloquean al jugador.
-
-    for (const x of [-12, 12]) {
-        const farola = colocarModelo(
-            "farola",
-            x,
-            0,
-            z,
-            1.2,
-            5
+            velocidad * direccion,
+            padre
         );
 
-        if (!farola) {
-            caja(0.15, 3.5, 0.15, MAT.metal, x, 1.75, z);
-            esfera(0.3, MAT.neonAzul, x, 3.5, z);
-        }
+        fila++;
     }
 }
 
 // ============================================================
-// 9. AGUA Y TRONCOS
+// 8. AGUA Y TRONCOS
 // ============================================================
 
-function crearRio(zInicio, zFinal, velocidad = 2) {
-    zonasAgua.push({
-        inicio: zInicio,
-        final: zFinal
-    });
+function crearRio(inicio, final, velocidad, padre) {
+    aguaZonas.push({ inicio, final, padre });
 
-    const largo = zFinal - zInicio;
+    const longitud = final - inicio;
+    const centro = (inicio + final) / 2;
+
+    // Agua hundida respecto al suelo.
 
     caja(
-        20,
-        0.1,
-        largo,
+        19.8,
+        0.12,
+        longitud,
         MAT.agua,
         0,
-        -0.06,
-        (zInicio + zFinal) / 2
+        -0.13,
+        centro,
+        padre
     );
 
-    // Los laterales del rio son plataformas decorativas.
+    // Bordes visibles del rio.
 
-    for (const x of [-12, 12]) {
+    for (const x of [-9.9, 9.9]) {
         caja(
-            4,
-            0.3,
-            largo,
-            MAT.borde,
+            0.16,
+            0.12,
+            longitud,
+            MAT.bordeAgua,
             x,
-            0,
-            (zInicio + zFinal) / 2
+            0.04,
+            centro,
+            padre
         );
     }
 
-    for (let z = zInicio + 1; z < zFinal; z += 1.8) {
-        const direccion =
-            Math.floor(z - zInicio) % 2 === 0 ? 1 : -1;
+    let fila = 0;
+
+    for (let z = inicio + 0.9; z < final; z += 1.7) {
+        const direccion = fila % 2 === 0 ? 1 : -1;
 
         crearTronco(
-            -5 + Math.random() * 10,
+            -5.5,
             z,
-            velocidad * direccion
+            velocidad * direccion,
+            padre
         );
 
         crearTronco(
-            6 + Math.random() * 5,
+            5.5,
             z,
-            velocidad * direccion
+            velocidad * direccion,
+            padre
         );
+
+        fila++;
     }
 }
 
-function crearTronco(x, z, velocidad) {
+function crearTronco(x, z, velocidad, padre) {
     const grupo = new THREE.Group();
 
-    const cilindro = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.42, 0.42, 4.8, 10),
+    const cuerpo = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.42, 0.42, 4.8, 12),
         MAT.madera
     );
 
-    cilindro.rotation.z = Math.PI / 2;
-    cilindro.position.y = 0.2;
-    grupo.add(cilindro);
+    cuerpo.rotation.z = Math.PI / 2;
+    cuerpo.position.y = 0.24;
+    grupo.add(cuerpo);
+
+    for (const extremo of [-2.4, 2.4]) {
+        const tapa = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.43, 0.43, 0.05, 12),
+            MAT.maderaOscura
+        );
+
+        tapa.rotation.z = Math.PI / 2;
+        tapa.position.set(extremo, 0.24, 0);
+        grupo.add(tapa);
+    }
 
     grupo.position.set(x, 0, z);
-    escena.add(grupo);
+    padre.add(grupo);
 
     troncos.push({
-        grupo,
+        objeto: grupo,
         velocidad,
-        activo: true
+        etapa: padre
     });
 }
 
 // ============================================================
-// 10. VEHICULOS FUTURISTAS PROVISIONALES
+// 9. VEHICULOS FUTURISTAS
 // ============================================================
 
-function crearVehiculo(x, z, velocidad) {
+function crearVehiculo(x, z, velocidad, padre) {
     const grupo = new THREE.Group();
 
-    const materialCarro = new THREE.MeshStandardMaterial({
-        color: Math.random() > 0.5 ? 0x27346e : 0x642b80,
-        metalness: 0.8,
-        roughness: 0.25
-    });
+    const color = Math.random() > 0.5 ? 0x3452a4 : 0x8b399e;
 
-    caja(2.6, 0.45, 1.1, materialCarro, 0, 0.55, 0, grupo);
-    caja(1.5, 0.4, 0.85, MAT.metal, 0, 0.9, 0, grupo);
+    const carroMat = material(color, 0.65, 0.3);
 
-    // Propulsores luminosos en lugar de ruedas.
+    caja(2.6, 0.38, 1.15, carroMat, 0, 0.45, 0, grupo);
+    caja(1.35, 0.3, 0.8, MAT.metal, 0, 0.78, 0, grupo);
+
+    // Propulsores laterales.
 
     for (const lado of [-1, 1]) {
         caja(
-            0.5,
-            0.16,
-            1.2,
-            MAT.neonAzul,
-            lado * 1.1,
-            0.3,
+            0.42,
+            0.15,
+            1.3,
+            MAT.azul,
+            lado * 1.08,
+            0.25,
             0,
             grupo
         );
     }
 
-    caja(0.1, 0.15, 0.8, MAT.neonRosa, -1.35, 0.55, 0, grupo);
-    caja(0.1, 0.15, 0.8, MAT.neonAmarillo, 1.35, 0.55, 0, grupo);
+    caja(0.08, 0.15, 0.8, MAT.rosa, -1.33, 0.45, 0, grupo);
+    caja(0.08, 0.15, 0.8, MAT.amarillo, 1.33, 0.45, 0, grupo);
 
     grupo.position.set(x, 0, z);
-
-    escena.add(grupo);
+    padre.add(grupo);
 
     vehiculos.push({
-        grupo,
+        objeto: grupo,
         velocidad,
-        activo: true
+        etapa: padre
     });
 }
 
 // ============================================================
-// 11. DECORACION CYBERPUNK
+// 10. DECORACION CON MODELOS GLB
 // ============================================================
 
-function crearDecoracion(z, tipo) {
-    let modelo = null;
+function crearDecoracionSegura(z, padre) {
+    // Estos objetos se colocan fuera de la zona jugable.
 
-    if (tipo === "senal") {
-        modelo = colocarModelo("senal", -11, 0, z, 2, 6);
+    for (const x of [-12, 12]) {
+        const farola = colocarModelo(
+            "farola",
+            padre,
+            x,
+            z,
+            1.3,
+            4.5
+        );
+
+        if (!farola) {
+            caja(0.12, 3, 0.12, MAT.metal, x, 1.5, z, padre);
+            esfera(0.22, MAT.azul, x, 3.1, z, padre);
+        }
     }
-
-    if (tipo === "comida") {
-        modelo = colocarModelo("comida", -14, 0, z, 3.5, 4);
-    }
-
-    if (tipo === "maquina") {
-        modelo = colocarModelo("maquina", 14, 0, z, 2, 3);
-    }
-
-    if (modelo) decoraciones.push(modelo);
 }
 
-function crearEdificioProvisional(x, z, ancho, alto) {
-    // Se colocan muy lejos del recorrido de los carros.
-    // Posteriormente se reemplazaran por modelos GLB.
+function crearPuntoDecorativo(z, padre) {
+    colocarModelo("senal", padre, -13.5, z, 1.8, 5);
+    colocarModelo("maquina", padre, 13.5, z + 1, 2, 3);
+    colocarModelo("comida", padre, -15, z + 2, 3, 3);
+}
 
+// ============================================================
+// 11. EDIFICIOS PROVISIONALES
+// ============================================================
+
+function crearEdificio(x, z, ancho, alto) {
     const grupo = new THREE.Group();
 
-    const edificio = caja(
+    caja(
         ancho,
         alto,
         ancho,
-        new THREE.MeshStandardMaterial({
-            color: 0x10172f,
-            metalness: 0.45,
-            roughness: 0.55
-        }),
+        material(0x141a2e, 0.25),
         0,
         alto / 2,
         0,
         grupo
     );
 
-    edificio.castShadow = false;
+    // Ventanas pequeñas, en vez de franjas gigantes.
 
-    for (let y = 2; y < alto; y += 3) {
-        caja(
-            ancho + 0.12,
-            0.07,
-            ancho + 0.12,
-            Math.random() > 0.5 ?
-                MAT.neonAzul : MAT.neonRosa,
-            0,
-            y,
-            0,
-            grupo
-        );
+    for (let y = 2; y < alto - 1; y += 2.4) {
+        for (let a = -ancho / 2 + 0.6; a < ancho / 2; a += 1.3) {
+            caja(
+                0.38,
+                0.55,
+                0.035,
+                Math.random() > 0.4 ? MAT.azul : MAT.rosa,
+                a,
+                y,
+                ancho / 2 + 0.025,
+                grupo
+            );
+        }
     }
 
     grupo.position.set(x, 0, z);
     escena.add(grupo);
-    decoraciones.push(grupo);
 }
 
 function crearCiudadLejana() {
-    // No hay edificios junto a las salidas de las carreteras.
-    // Se ubican en una franja lejana de fondo.
+    // Los edificios quedan fuera del recorrido de los carros,
+    // que llegan hasta x = +/-29.
 
-    for (let i = 0; i < 16; i++) {
-        const x = i % 2 === 0 ?
-            -48 - Math.random() * 20 :
-            48 + Math.random() * 20;
+    for (let i = 0; i < 24; i++) {
+        const lado = i % 2 === 0 ? -1 : 1;
 
-        const z = -10 + i * 7;
-        const alto = 7 + Math.random() * 16;
-
-        crearEdificioProvisional(
-            x,
-            z,
-            4 + Math.random() * 3,
-            alto
+        crearEdificio(
+            lado * (42 + Math.random() * 18),
+            -5 + i * 5,
+            4 + Math.random() * 4,
+            7 + Math.random() * 15
         );
     }
 }
 
 // ============================================================
-// 12. PERSONAJE PROVISIONAL ASTRO
+// 12. PERSONAJE PROVISIONAL
 // ============================================================
 
 const astro = new THREE.Group();
 
-const cuerpoAstro = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.42, 0.75, 6, 12),
-    new THREE.MeshStandardMaterial({
-        color: 0x44aaff,
-        metalness: 0.5
-    })
+const cuerpo = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.38, 0.7, 6, 12),
+    material(0x39a9ed, 0.35)
 );
 
-cuerpoAstro.position.y = 0.85;
-astro.add(cuerpoAstro);
+cuerpo.position.y = 0.83;
+astro.add(cuerpo);
 
-const cabezaAstro = esfera(
+esfera(
     0.42,
-    new THREE.MeshStandardMaterial({
-        color: 0xe9f2ff,
-        metalness: 0.35
-    }),
+    material(0xeaf2ff),
     0,
-    1.65,
+    1.55,
     0,
     astro
 );
 
 caja(
-    0.65,
-    0.22,
-    0.12,
-    MAT.neonAzul,
+    0.62,
+    0.19,
+    0.1,
+    MAT.azul,
     0,
-    1.68,
-    0.36,
+    1.6,
+    0.37,
     astro
 );
 
@@ -782,88 +744,72 @@ escena.add(astro);
 // 13. GEMAS Y CHECKPOINTS
 // ============================================================
 
-function crearGema(z, numero) {
+function crearGema(z, numero, padre) {
     const grupo = new THREE.Group();
 
-    const plataforma = caja(
-        7,
-        0.4,
-        3.5,
-        MAT.borde,
-        0,
-        0.05,
-        z,
-        grupo
-    );
-
-    plataforma.receiveShadow = true;
+    caja(7, 0.2, 3.2, MAT.acera, 0, 0.02, 0, grupo);
 
     const cristal = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.8),
-        MAT.neonRosa
+        new THREE.OctahedronGeometry(0.75),
+        MAT.rosa
     );
 
-    cristal.position.y = 1.8;
+    cristal.position.y = 1.5;
     grupo.add(cristal);
 
     const anillo = new THREE.Mesh(
-        new THREE.TorusGeometry(1.25, 0.08, 8, 48),
-        MAT.neonAzul
+        new THREE.TorusGeometry(1.2, 0.08, 8, 48),
+        MAT.azul
     );
 
     anillo.rotation.x = Math.PI / 2;
-    anillo.position.y = 0.5;
+    anillo.position.y = 0.3;
     grupo.add(anillo);
 
     grupo.position.z = z;
-    escena.add(grupo);
+    padre.add(grupo);
 
     gemasObjetos.push({
-        grupo,
+        objeto: grupo,
         cristal,
         numero,
+        z,
         recogida: false,
-        z
+        etapa: padre
     });
-
-    crearDecoracion(z, "senal");
-    crearDecoracion(z, "maquina");
 }
 
-let trofeo = null;
-
-function crearTrofeo(z) {
+function crearTrofeo(z, padre) {
     const grupo = new THREE.Group();
 
-    caja(7, 0.5, 5, MAT.borde, 0, 0.1, 0, grupo);
-
-    caja(1.5, 0.35, 1.5, MAT.neonAmarillo, 0, 0.6, 0, grupo);
+    caja(7, 0.25, 4, MAT.acera, 0, 0.1, 0, grupo);
+    caja(1.4, 0.35, 1.4, MAT.oro, 0, 0.5, 0, grupo);
 
     const copa = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.8, 0.35, 1.5, 16),
-        MAT.neonAmarillo
+        new THREE.CylinderGeometry(0.8, 0.3, 1.3, 16),
+        MAT.oro
     );
 
-    copa.position.y = 1.6;
+    copa.position.y = 1.45;
     grupo.add(copa);
 
-    esfera(0.65, MAT.neonAzul, 0, 2.5, 0, grupo);
+    esfera(0.55, MAT.azul, 0, 2.25, 0, grupo);
 
     grupo.position.z = z;
-    escena.add(grupo);
+    padre.add(grupo);
 
     trofeo = {
-        grupo,
+        objeto: grupo,
         z,
-        activo: true
+        etapa: padre
     };
 }
 
 // ============================================================
-// 14. SIERRAS DE LA ZONA DIFICIL
+// 14. SIERRAS
 // ============================================================
 
-function crearSierra(x, z, velocidad) {
+function crearSierra(x, z, velocidad, padre) {
     const grupo = new THREE.Group();
 
     const disco = new THREE.Mesh(
@@ -872,20 +818,20 @@ function crearSierra(x, z, velocidad) {
     );
 
     disco.rotation.x = Math.PI / 2;
-    disco.position.y = 0.9;
+    disco.position.y = 0.85;
     grupo.add(disco);
 
     for (let i = 0; i < 12; i++) {
-        const angulo = i * Math.PI * 2 / 12;
+        const angulo = i * Math.PI / 6;
 
         const diente = new THREE.Mesh(
             new THREE.ConeGeometry(0.2, 0.45, 3),
-            MAT.neonRosa
+            MAT.rosa
         );
 
         diente.position.set(
-            Math.cos(angulo) * 0.88,
-            0.9 + Math.sin(angulo) * 0.88,
+            Math.cos(angulo) * 0.9,
+            0.85 + Math.sin(angulo) * 0.9,
             0
         );
 
@@ -894,103 +840,95 @@ function crearSierra(x, z, velocidad) {
     }
 
     grupo.position.set(x, 0, z);
-    escena.add(grupo);
+    padre.add(grupo);
 
     sierras.push({
-        grupo,
+        objeto: grupo,
         velocidad,
-        activo: true
+        etapa: padre
     });
 }
 
 // ============================================================
-// 15. MAPA PROGRESIVO
+// 15. CONSTRUCCION PROGRESIVA DEL MAPA
 // ============================================================
-
-// Se crean las tres etapas, pero solo la primera es visible.
-// Al recoger cada gema se activa la siguiente etapa.
-
-const etapas = [
-    new THREE.Group(),
-    new THREE.Group(),
-    new THREE.Group()
-];
-
-// Guardamos cada objeto de una etapa dentro de un grupo.
-// Asi podemos mostrar u ocultar la etapa completa.
-
-function moverObjetosAGrupo(grupo, objetosAnteriores) {
-    const nuevos = escena.children.filter(
-        objeto => !objetosAnteriores.has(objeto)
-    );
-
-    for (const objeto of nuevos) {
-        grupo.attach(objeto);
-    }
-
-    escena.add(grupo);
-}
-
-function construirEtapa(indice, constructor) {
-    const existentes = new Set(escena.children);
-
-    constructor();
-
-    moverObjetosAGrupo(etapas[indice], existentes);
-}
 
 function construirMapa() {
-    crearSuelo(-5, 105);
-    crearCiudadLejana();
+    ETAPAS.forEach((datos, indice) => {
+        const grupo = new THREE.Group();
+        grupo.name = `Etapa_${indice + 1}`;
 
-    // ETAPA 1: carros, agua, carros y primera gema.
+        escena.add(grupo);
+        gruposEtapa.push(grupo);
 
-    construirEtapa(0, () => {
-        crearCarretera(5, 10, 3.3);
-        crearRio(12, 17, 1.6);
-        crearCarretera(19, 24, 4);
-        crearGema(27, 1);
-        crearDecoracion(2, "comida");
-    });
+        crearSuelo(datos.inicio, datos.final, grupo);
 
-    // ETAPA 2: mayor velocidad y segunda gema.
+        for (const zona of datos.zonas) {
+            if (zona.tipo === "carretera") {
+                crearCarretera(
+                    zona.inicio,
+                    zona.final,
+                    zona.velocidad,
+                    grupo
+                );
+            }
 
-    construirEtapa(1, () => {
-        crearCarretera(32, 38, 5.2);
-        crearRio(40, 46, 2.4);
-        crearCarretera(48, 54, 6.2);
-        crearGema(57, 2);
-        crearDecoracion(30, "maquina");
-    });
+            if (zona.tipo === "agua") {
+                crearRio(
+                    zona.inicio,
+                    zona.final,
+                    zona.velocidad,
+                    grupo
+                );
+            }
 
-    // ETAPA 3: vehiculos, sierras y trofeo.
-
-    construirEtapa(2, () => {
-        crearCarretera(62, 69, 7.5);
-
-        for (let z = 72; z <= 82; z += 2.5) {
-            crearSierra(
-                -5 + Math.random() * 10,
-                z,
-                2.5 + Math.random() * 2
-            );
+            if (zona.tipo === "sierras") {
+                for (let z = zona.inicio; z <= zona.final; z += 2.5) {
+                    crearSierra(
+                        -5 + Math.random() * 10,
+                        z,
+                        zona.velocidad,
+                        grupo
+                    );
+                }
+            }
         }
 
-        crearTrofeo(88);
-        crearDecoracion(85, "comida");
+        if (datos.gema !== null) {
+            crearGema(datos.gema, indice + 1, grupo);
+        }
+
+        if (indice === 2) {
+            crearTrofeo(88, grupo);
+        }
+
+        // Decoracion solamente en franjas seguras.
+
+        const zonasDecoracion = indice === 0
+            ? [2, 11, 18, 26]
+            : indice === 1
+                ? [30, 39, 47, 56]
+                : [60, 70, 85];
+
+        for (const z of zonasDecoracion) {
+            crearDecoracionSegura(z, grupo);
+        }
+
+        crearPuntoDecorativo(
+            indice === 0 ? 2 : indice === 1 ? 56 : 85,
+            grupo
+        );
     });
 
-    etapas[0].visible = true;
-    etapas[1].visible = false;
-    etapas[2].visible = false;
+    activarEtapa(0);
 }
 
 function activarEtapa(numero) {
     etapaActual = Math.max(etapaActual, numero);
 
-    for (let i = 0; i < etapas.length; i++) {
-        etapas[i].visible = i <= etapaActual;
-    }
+    gruposEtapa.forEach((grupo, i) => {
+        grupo.visible = i <= etapaActual;
+    });
 }
 
 // ============================================================
@@ -1000,10 +938,7 @@ function activarEtapa(numero) {
 window.addEventListener("keydown", e => {
     const tecla = e.key.toLowerCase();
 
-    if (
-        tecla.startsWith("arrow") ||
-        tecla === " "
-    ) {
+    if (tecla.startsWith("arrow") || tecla === " " || tecla === "tab") {
         e.preventDefault();
     }
 
@@ -1012,9 +947,8 @@ window.addEventListener("keydown", e => {
     if (e.repeat) return;
 
     if (tecla === "tab") {
-        e.preventDefault();
-        modoCamara = modoCamara === 0 ? 1 : 0;
-        camara.fov = modoCamara === 0 ? 70 : 80;
+        modoCamara = 1 - modoCamara;
+        camara.fov = modoCamara === 0 ? 65 : 78;
         camara.updateProjectionMatrix();
         actualizarHUD();
     }
@@ -1023,8 +957,12 @@ window.addEventListener("keydown", e => {
         cambiarPausa();
     }
 
-    if (tecla === " " && estado === ESTADO.JUGANDO && enSuelo) {
-        velocidadVertical = CONFIG.velocidadSalto;
+    if (
+        tecla === " " &&
+        estado === "jugando" &&
+        enSuelo
+    ) {
+        velocidadY = CONFIG.salto;
         enSuelo = false;
     }
 });
@@ -1034,7 +972,9 @@ window.addEventListener("keyup", e => {
 });
 
 window.addEventListener("blur", () => {
-    for (const tecla in teclas) teclas[tecla] = false;
+    Object.keys(teclas).forEach(k => {
+        teclas[k] = false;
+    });
 });
 
 // ============================================================
@@ -1045,7 +985,7 @@ function actualizarJugador(dt) {
     let dx = 0;
     let dz = 0;
 
-    // Se conserva exactamente la asignacion solicitada.
+    // Mantenemos exactamente tus controles.
 
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
@@ -1069,29 +1009,28 @@ function actualizarJugador(dt) {
 
     astro.position.x = THREE.MathUtils.clamp(
         astro.position.x,
-        -CONFIG.limiteJugadorX,
-        CONFIG.limiteJugadorX
+        -CONFIG.limiteX,
+        CONFIG.limiteX
     );
 
-    astro.position.z = Math.max(
-        checkpoint.z - 1.5,
-        astro.position.z
+    astro.position.z = THREE.MathUtils.clamp(
+        astro.position.z,
+        Math.max(0, checkpoint.z - 1.5),
+        ETAPAS[etapaActual].final - 0.8
     );
 
     if (!enSuelo) {
-        velocidadVertical -= CONFIG.gravedad * dt;
-        astro.position.y += velocidadVertical * dt;
+        velocidadY -= CONFIG.gravedad * dt;
+        astro.position.y += velocidadY * dt;
 
         if (astro.position.y <= 0) {
             astro.position.y = 0;
-            velocidadVertical = 0;
+            velocidadY = 0;
             enSuelo = true;
         }
     }
 
-    if (invulnerable > 0) {
-        invulnerable -= dt;
-    }
+    invulnerable = Math.max(0, invulnerable - dt);
 
     astro.visible =
         modoCamara === 0 &&
@@ -1102,92 +1041,89 @@ function actualizarJugador(dt) {
 }
 
 // ============================================================
-// 18. MOVIMIENTO DE VEHICULOS Y TRONCOS
+// 18. ACTUALIZAR OBSTACULOS
 // ============================================================
 
 function actualizarObstaculos(dt) {
     for (const carro of vehiculos) {
-        if (!carro.activo || !carro.grupo.parent?.visible) continue;
+        if (!carro.etapa.visible) continue;
 
-        carro.grupo.position.x += carro.velocidad * dt;
+        carro.objeto.position.x += carro.velocidad * dt;
 
         if (carro.velocidad > 0 &&
-            carro.grupo.position.x > CONFIG.limiteVehiculos) {
-            carro.grupo.position.x = -CONFIG.limiteVehiculos;
+            carro.objeto.position.x > CONFIG.limiteVehiculos) {
+            carro.objeto.position.x = -CONFIG.limiteVehiculos;
         }
 
         if (carro.velocidad < 0 &&
-            carro.grupo.position.x < -CONFIG.limiteVehiculos) {
-            carro.grupo.position.x = CONFIG.limiteVehiculos;
+            carro.objeto.position.x < -CONFIG.limiteVehiculos) {
+            carro.objeto.position.x = CONFIG.limiteVehiculos;
         }
     }
 
     for (const tronco of troncos) {
-        if (!tronco.activo || !tronco.grupo.parent?.visible) continue;
+        if (!tronco.etapa.visible) continue;
 
-        tronco.grupo.position.x += tronco.velocidad * dt;
+        tronco.objeto.position.x += tronco.velocidad * dt;
 
-        if (tronco.velocidad > 0 && tronco.grupo.position.x > 15) {
-            tronco.grupo.position.x = -15;
+        if (tronco.velocidad > 0 && tronco.objeto.position.x > 13) {
+            tronco.objeto.position.x = -13;
         }
 
-        if (tronco.velocidad < 0 && tronco.grupo.position.x < -15) {
-            tronco.grupo.position.x = 15;
+        if (tronco.velocidad < 0 && tronco.objeto.position.x < -13) {
+            tronco.objeto.position.x = 13;
         }
     }
 
     for (const sierra of sierras) {
-        if (!sierra.activo || !sierra.grupo.parent?.visible) continue;
+        if (!sierra.etapa.visible) continue;
 
-        sierra.grupo.rotation.z += dt * 5;
-        sierra.grupo.position.x += sierra.velocidad * dt;
+        sierra.objeto.rotation.z += dt * 5;
+        sierra.objeto.position.x += sierra.velocidad * dt;
 
-        if (sierra.grupo.position.x > 9) {
+        if (sierra.objeto.position.x > 8) {
             sierra.velocidad = -Math.abs(sierra.velocidad);
         }
 
-        if (sierra.grupo.position.x < -9) {
+        if (sierra.objeto.position.x < -8) {
             sierra.velocidad = Math.abs(sierra.velocidad);
         }
     }
 }
 
 // ============================================================
-// 19. COLISIONES
+// 19. COLISIONES Y CHECKPOINTS
 // ============================================================
 
 function perderVida() {
-    if (invulnerable > 0 || estado !== ESTADO.JUGANDO) return;
+    if (invulnerable > 0 || estado !== "jugando") return;
 
     vidas--;
-    actualizarHUD();
 
     if (vidas <= 0) {
+        actualizarHUD();
         finalizar(false);
         return;
     }
 
     astro.position.copy(checkpoint);
-    velocidadVertical = 0;
+    velocidadY = 0;
     enSuelo = true;
     invulnerable = CONFIG.invulnerabilidad;
+
+    actualizarHUD();
 }
 
 function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-    // Colisiones con carros.
-
     for (const carro of vehiculos) {
-        if (!carro.grupo.parent?.visible) continue;
-
-        const cx = carro.grupo.position.x;
-        const cz = carro.grupo.position.z;
+        if (!carro.etapa.visible) continue;
 
         if (
-            Math.abs(x - cx) < 1.6 &&
-            Math.abs(z - cz) < 0.85 &&
+            Math.abs(x - carro.objeto.position.x) < 1.55 &&
+            Math.abs(z - carro.objeto.position.z) < 0.8 &&
             astro.position.y < 0.8
         ) {
             perderVida();
@@ -1195,56 +1131,50 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // El jugador debe permanecer sobre un tronco
-    // cuando se encuentre dentro del agua.
-
-    const rio = zonasAgua.find(
+    const rio = aguaZonas.find(
         zona =>
+            zona.padre.visible &&
             z >= zona.inicio &&
             z <= zona.final
     );
 
     if (rio && astro.position.y < 0.45) {
-        let sostenido = false;
+        let sobreTronco = false;
 
         for (const tronco of troncos) {
-            if (!tronco.grupo.parent?.visible) continue;
+            if (!tronco.etapa.visible) continue;
 
             if (
-                Math.abs(x - tronco.grupo.position.x) < 2.3 &&
-                Math.abs(z - tronco.grupo.position.z) < 0.65
+                Math.abs(x - tronco.objeto.position.x) < 2.25 &&
+                Math.abs(z - tronco.objeto.position.z) < 0.62
             ) {
                 astro.position.x += tronco.velocidad * dt;
-                sostenido = true;
+                sobreTronco = true;
                 break;
             }
         }
 
-        if (!sostenido) {
+        if (!sobreTronco) {
             perderVida();
             return;
         }
     }
 
-    // Sierras.
-
     for (const sierra of sierras) {
-        if (!sierra.grupo.parent?.visible) continue;
+        if (!sierra.etapa.visible) continue;
 
         if (
-            Math.abs(x - sierra.grupo.position.x) < 1.1 &&
-            Math.abs(z - sierra.grupo.position.z) < 0.7 &&
-            astro.position.y < 1.5
+            Math.abs(x - sierra.objeto.position.x) < 1.1 &&
+            Math.abs(z - sierra.objeto.position.z) < 0.8 &&
+            astro.position.y < 1.4
         ) {
             perderVida();
             return;
         }
     }
 
-    // Gemas y puntos de control.
-
     for (const gema of gemasObjetos) {
-        if (gema.recogida || !gema.grupo.parent?.visible) continue;
+        if (gema.recogida || !gema.etapa.visible) continue;
 
         if (
             Math.abs(x) < 2.5 &&
@@ -1265,102 +1195,94 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // Trofeo final.
-
     if (
         trofeo &&
-        trofeo.activo &&
+        trofeo.etapa.visible &&
         gemas === 2 &&
         Math.abs(x) < 2.5 &&
         Math.abs(z - trofeo.z) < 2
     ) {
-        trofeo.activo = false;
         puntos += 1000;
         finalizar(true);
     }
 }
 
 // ============================================================
-// 20. CAMARAS
+// 20. CAMARA ELEVADA Y PRIMERA PERSONA
 // ============================================================
 
-const objetivoCamara = new THREE.Vector3();
-const miradaCamara = new THREE.Vector3();
+const destinoCamara = new THREE.Vector3();
+const mirar = new THREE.Vector3();
 
 function actualizarCamara(dt) {
     if (modoCamara === 0) {
-        objetivoCamara.set(
+        // Mas cerca del personaje que en la version anterior.
+
+        destinoCamara.set(
             astro.position.x,
-            astro.position.y + 7,
-            astro.position.z - 9
+            astro.position.y + 5.2,
+            astro.position.z - 7
         );
 
-        miradaCamara.set(
+        mirar.set(
             astro.position.x,
-            astro.position.y + 1,
-            astro.position.z + 8
+            astro.position.y + 0.8,
+            astro.position.z + 5
         );
     } else {
-        // Primera persona desde los ojos del personaje.
-
-        objetivoCamara.set(
+        destinoCamara.set(
             astro.position.x,
-            astro.position.y + 1.7,
-            astro.position.z + 0.15
+            astro.position.y + 1.65,
+            astro.position.z + 0.1
         );
 
-        miradaCamara.set(
+        mirar.set(
             astro.position.x,
-            astro.position.y + 1.7,
+            astro.position.y + 1.65,
             astro.position.z + 12
         );
     }
 
     const factor = 1 - Math.exp(
-        -CONFIG.velocidadCamara * dt
+        -CONFIG.camaraSuavidad * dt
     );
 
-    camara.position.lerp(objetivoCamara, factor);
-    camara.lookAt(miradaCamara);
+    camara.position.lerp(destinoCamara, factor);
+    camara.lookAt(mirar);
 }
 
 // ============================================================
-// 21. ANIMACIONES DECORATIVAS
+// 21. ANIMACION AMBIENTAL
 // ============================================================
 
-function actualizarDecoracion(dt) {
+function actualizarAmbiente(dt) {
     for (const nave of naves) {
-        nave.grupo.position.x += nave.velocidad * dt;
+        nave.objeto.position.x += nave.velocidad * dt;
 
-        nave.grupo.position.y =
-            nave.origenY +
-            Math.sin(tiempoGlobal + nave.fase) * 0.8;
+        nave.objeto.position.y =
+            nave.altura +
+            Math.sin(tiempoGlobal + nave.fase) * 0.6;
 
-        if (nave.grupo.position.x > 95) {
-            nave.grupo.position.x = -95;
+        if (nave.objeto.position.x > 95) {
+            nave.objeto.position.x = -95;
         }
     }
 
     for (const gema of gemasObjetos) {
-        if (!gema.recogida && gema.grupo.parent?.visible) {
+        if (!gema.recogida && gema.etapa.visible) {
             gema.cristal.rotation.y += dt * 1.5;
             gema.cristal.position.y =
-                1.8 + Math.sin(tiempoGlobal * 2) * 0.2;
+                1.5 + Math.sin(tiempoGlobal * 2) * 0.15;
         }
-    }
-
-    if (trofeo && trofeo.grupo.parent?.visible) {
-        trofeo.grupo.rotation.y =
-            Math.sin(tiempoGlobal * 0.6) * 0.08;
     }
 }
 
 // ============================================================
-// 22. INICIO, PAUSA Y FIN DEL JUEGO
+// 22. JUEGO
 // ============================================================
 
 function iniciarJuego() {
-    estado = ESTADO.JUGANDO;
+    estado = "jugando";
 
     vidas = CONFIG.vidas;
     puntos = 0;
@@ -1368,82 +1290,75 @@ function iniciarJuego() {
     tiempo = CONFIG.tiempo;
     etapaActual = 0;
     invulnerable = 0;
-    velocidadVertical = 0;
+    velocidadY = 0;
     enSuelo = true;
 
     checkpoint.set(0, 0, 0);
     astro.position.copy(checkpoint);
 
-    activarEtapa(0);
+    gruposEtapa.forEach((grupo, i) => {
+        grupo.visible = i === 0;
+    });
 
-    for (const gema of gemasObjetos) {
+    gemasObjetos.forEach(gema => {
         gema.recogida = false;
         gema.cristal.visible = true;
-    }
-
-    if (trofeo) trofeo.activo = true;
+    });
 
     actualizarHUD();
-    ocultarOverlay();
 
+    if (overlay) overlay.style.display = "none";
     if (pausaPanel) pausaPanel.style.display = "none";
 }
 
 function cambiarPausa() {
-    if (estado === ESTADO.JUGANDO) {
-        estado = ESTADO.PAUSA;
+    if (estado === "jugando") {
+        estado = "pausa";
         if (pausaPanel) pausaPanel.style.display = "flex";
-    } else if (estado === ESTADO.PAUSA) {
-        estado = ESTADO.JUGANDO;
+    } else if (estado === "pausa") {
+        estado = "jugando";
         if (pausaPanel) pausaPanel.style.display = "none";
     }
 }
 
 function finalizar(victoria) {
-    estado = victoria ? ESTADO.VICTORIA : ESTADO.DERROTA;
+    estado = victoria ? "victoria" : "derrota";
 
-    mostrarOverlay(
+    mostrarMenu(
         victoria ? "MISION COMPLETADA" : "GAME OVER",
         victoria ? "Has conseguido el trofeo" : "Fin del recorrido",
-        victoria
-            ? `Conseguiste ${gemas} gemas y ${puntos} puntos.`
-            : `Conseguiste ${gemas} gemas. Intentalo otra vez.`,
+        `Gemas: ${gemas}/2 - Puntos: ${puntos}`,
         "Volver a jugar"
     );
 }
 
-if (btnJugar) {
-    btnJugar.addEventListener("click", iniciarJuego);
-}
-
-if (btnContinuar) {
-    btnContinuar.addEventListener("click", cambiarPausa);
-}
+obtener("btnJugar")?.addEventListener("click", iniciarJuego);
+obtener("btnContinuar")?.addEventListener("click", cambiarPausa);
 
 // ============================================================
 // 23. BUCLE PRINCIPAL
 // ============================================================
 
-function animar(milisegundos) {
+function animar(ms) {
     requestAnimationFrame(animar);
 
     const dt = Math.min(
-        (milisegundos - ultimoTiempo) / 1000 || 0,
+        (ms - ultimoTiempo) / 1000 || 0,
         0.05
     );
 
-    ultimoTiempo = milisegundos;
+    ultimoTiempo = ms;
 
-    if (estado === ESTADO.JUGANDO) {
+    if (estado === "jugando") {
         tiempoGlobal += dt;
         tiempo -= dt;
 
         actualizarJugador(dt);
         actualizarObstaculos(dt);
         comprobarColisiones(dt);
-        actualizarDecoracion(dt);
+        actualizarAmbiente(dt);
 
-        if (tiempo <= 0) {
+        if (tiempo <= 0 && estado === "jugando") {
             tiempo = 0;
             finalizar(false);
         }
@@ -1452,12 +1367,11 @@ function animar(milisegundos) {
     }
 
     actualizarCamara(dt);
-
     renderer.render(escena, camara);
 }
 
 // ============================================================
-// 24. AJUSTE DE VENTANA
+// 24. PANTALLA
 // ============================================================
 
 window.addEventListener("resize", () => {
@@ -1473,23 +1387,27 @@ window.addEventListener("resize", () => {
 });
 
 // ============================================================
-// 25. INICIALIZACION
+// 25. INICIALIZAR
 // ============================================================
 
 async function inicializar() {
     crearGalaxia();
-    crearTraficoAereo();
+    crearNaves();
 
     await cargarModelos();
 
+    crearCiudadLejana();
     construirMapa();
+
+    camara.position.set(0, 5.2, -7);
+    camara.lookAt(0, 0.8, 5);
 
     actualizarHUD();
 
-    mostrarOverlay(
+    mostrarMenu(
         "ASTRO & BOLT",
         "CRUCE IMPOSIBLE 3D",
-        "Consigue las dos gemas, supera los obstaculos y alcanza el trofeo.",
+        "Consigue dos gemas, activa los checkpoints y alcanza el trofeo.",
         "Jugar"
     );
 
