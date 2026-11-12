@@ -1,6 +1,4 @@
-/* =========================================
-   01. ESTILOS GENERALES
-========================================= */
+/* 01. ESTILOS GENERALES */
 
 * {
     box-sizing: border-box;
@@ -14,18 +12,14 @@ body {
     overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
     background: #071020;
-    color: #ffffff;
+    color: white;
 }
 
-/* =========================================
-   02. ESCENARIO
-========================================= */
+/* 02. ESCENARIO */
 
 #game-container {
     position: fixed;
     inset: 0;
-    width: 100%;
-    height: 100%;
     z-index: 0;
 }
 
@@ -35,9 +29,7 @@ body {
     height: 100%;
 }
 
-/* =========================================
-   03. INTERFAZ DEL JUGADOR
-========================================= */
+/* 03. INTERFAZ */
 
 #hud {
     position: fixed;
@@ -49,21 +41,20 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
+    gap: 15px;
 
-    padding: 18px 24px;
+    padding: 16px 22px;
 
     background: linear-gradient(
-        to bottom,
-        rgba(2, 9, 23, 0.95),
-        rgba(2, 9, 23, 0)
+        rgba(3, 10, 25, 0.95),
+        rgba(3, 10, 25, 0)
     );
 
     pointer-events: none;
 }
 
 .logo {
-    font-size: 24px;
+    font-size: 23px;
     font-weight: 900;
     letter-spacing: 2px;
     color: #43dfff;
@@ -72,11 +63,11 @@ body {
 .indicadores {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
 }
 
 .indicadores div {
-    padding: 10px 14px;
+    padding: 10px 13px;
     background: rgba(8, 22, 43, 0.9);
     border: 1px solid #315b78;
     border-radius: 10px;
@@ -85,12 +76,9 @@ body {
 
 .indicadores span {
     font-weight: bold;
-    color: #ffffff;
 }
 
-/* =========================================
-   04. PANTALLAS DEL JUEGO
-========================================= */
+/* 04. PANTALLAS */
 
 #overlay,
 #pausa {
@@ -102,7 +90,7 @@ body {
     justify-content: center;
     align-items: center;
 
-    background: rgba(1, 7, 19, 0.85);
+    background: rgba(1, 7, 19, 0.84);
     backdrop-filter: blur(6px);
 }
 
@@ -113,7 +101,6 @@ body {
 .panel {
     width: min(90%, 490px);
     padding: 38px;
-
     text-align: center;
 
     background: linear-gradient(
@@ -145,7 +132,7 @@ body {
 .panel h1 {
     margin: 0;
     color: #4bdeff;
-    font-size: 36px;
+    font-size: 35px;
 }
 
 .panel h2 {
@@ -158,27 +145,23 @@ body {
     line-height: 1.7;
 }
 
-/* =========================================
-   05. CONTROLES Y BOTONES
-========================================= */
-
 .controles {
     margin: 24px 0;
     padding: 14px;
-
     background: #071427;
     border: 1px solid #274866;
     border-radius: 12px;
 }
 
 .controles p {
-    margin: 8px 0;
+    margin: 7px 0;
     font-size: 14px;
 }
 
+/* 05. BOTONES */
+
 button {
     padding: 15px 30px;
-
     border: none;
     border-radius: 10px;
 
@@ -187,8 +170,8 @@ button {
 
     font-size: 15px;
     font-weight: 900;
-
     cursor: pointer;
+
     transition: background 0.2s, transform 0.2s;
 }
 
@@ -197,9 +180,7 @@ button:hover {
     transform: scale(1.04);
 }
 
-/* =========================================
-   06. PANTALLAS PEQUENAS
-========================================= */
+/* 06. PANTALLAS PEQUENAS */
 
 @media (max-width: 700px) {
     #hud {
@@ -209,15 +190,15 @@ button:hover {
     }
 
     .logo {
-        font-size: 18px;
+        font-size: 17px;
     }
 
     .indicadores {
-        gap: 6px;
+        gap: 5px;
     }
 
     .indicadores div {
-        padding: 7px;
+        padding: 6px;
         font-size: 11px;
     }
 
@@ -226,6 +207,6 @@ button:hover {
     }
 
     .panel h1 {
-        font-size: 28px;
+        font-size: 27px;
     }
 }

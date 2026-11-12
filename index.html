@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>Astro & Bolt - Cruce Imposible 3D</title>
 
     <link rel="stylesheet" href="./CSS/style.css">
@@ -26,7 +28,8 @@
             <div>Vidas: <span id="vidas">3</span></div>
             <div>Puntos: <span id="puntos">0</span></div>
             <div>Metas: <span id="metas">0/3</span></div>
-            <div>Tiempo: <span id="tiempo">120</span>s</div>
+            <div>Tiempo: <span id="tiempo">240</span>s</div>
+            <div>Camara: <span id="camaraModo">Elevada</span></div>
         </div>
     </header>
 
@@ -38,13 +41,15 @@
             <h2 id="subtitulo">CRUCE IMPOSIBLE 3D</h2>
 
             <p id="mensaje">
-                Cruza las carreteras y el rio utilizando
-                los troncos flotantes para alcanzar las tres metas.
+                Cruza las autopistas y el rio.
+                Utiliza los troncos para alcanzar
+                las tres estaciones de energia.
             </p>
 
             <div class="controles">
-                <p>WASD / Flechas: Movimiento</p>
+                <p>WASD / Flechas: Mover</p>
                 <p>ESPACIO: Saltar</p>
+                <p>TAB: Cambiar camara</p>
                 <p>P / ESC: Pausar</p>
             </div>
 
@@ -55,7 +60,7 @@
     <section id="pausa" class="hidden">
         <div class="panel">
             <h1>JUEGO EN PAUSA</h1>
-            <p>Presiona continuar para regresar al juego.</p>
+            <p>Presiona continuar para regresar.</p>
             <button id="btnContinuar">CONTINUAR</button>
         </div>
     </section>

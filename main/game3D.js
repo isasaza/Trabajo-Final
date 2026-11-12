@@ -1,21 +1,21 @@
 import * as THREE from "three";
 
 // =====================================================
-// 01. CONFIGURACION
+// 01. CONFIGURACION GENERAL
 // =====================================================
 
 const CONFIG = {
     vidas: 3,
-    tiempo: 210,
+    tiempo: 240,
     velocidadJugador: 6,
     fuerzaSalto: 7,
     gravedad: 18,
     anchoMapa: 19,
-    largoMapa: 65,
-    limiteX: 8.1,
-    velocidadCamara: 5,
-    invulnerabilidad: 1.5,
-    metaZ: 63
+    largoMapa: 80,
+    limiteX: 8,
+    metaZ: 77,
+    velocidadCamara: 7,
+    invulnerabilidad: 1.5
 };
 
 const ESTADOS = {
@@ -31,6 +31,7 @@ let vidas = CONFIG.vidas;
 let tiempo = CONFIG.tiempo;
 let puntos = 0;
 let metas = 0;
+
 let invulnerable = 0;
 let velocidadVertical = 0;
 let tiempoAnimacion = 0;
@@ -45,22 +46,22 @@ const particulas = [];
 const reloj = new THREE.Clock();
 
 // =====================================================
-// 02. ESCENA Y RENDERIZADOR
+// 02. ESCENA, CAMARA Y RENDERIZADOR
 // =====================================================
 
 const escena = new THREE.Scene();
 
 escena.background = new THREE.Color(0x10213b);
-escena.fog = new THREE.Fog(0x10213b, 45, 110);
+escena.fog = new THREE.Fog(0x10213b, 55, 130);
 
 const camara = new THREE.PerspectiveCamera(
-    65,
+    70,
     window.innerWidth / window.innerHeight,
     0.1,
-    160
+    180
 );
 
-camara.position.set(0, 10, -12);
+camara.position.set(0, 6, -8);
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true
@@ -96,7 +97,7 @@ escena.add(
 
 const sol = new THREE.DirectionalLight(
     0xffffff,
-    2.5
+    2.4
 );
 
 sol.position.set(-12, 25, 15);
@@ -105,36 +106,37 @@ sol.castShadow = true;
 sol.shadow.mapSize.set(2048, 2048);
 sol.shadow.camera.left = -35;
 sol.shadow.camera.right = 35;
-sol.shadow.camera.top = 80;
+sol.shadow.camera.top = 90;
 sol.shadow.camera.bottom = -35;
 
 escena.add(sol);
 
 // =====================================================
-// 04. MATERIALES Y FIGURAS
+// 04. MATERIALES Y GEOMETRIAS
 // =====================================================
 
-function material(color, metal = false) {
+function crearMaterial(color, metal = false) {
     return new THREE.MeshStandardMaterial({
         color,
-        metalness: metal ? 0.55 : 0.08,
-        roughness: metal ? 0.3 : 0.8
+        metalness: metal ? 0.55 : 0.05,
+        roughness: metal ? 0.35 : 0.85
     });
 }
 
 const MAT = {
-    cesped: material(0x27654c),
-    carretera: material(0x293347),
-    agua: material(0x167cbb, true),
-    metal: material(0x667a96, true),
-    blanco: material(0xe6f6ff),
-    negro: material(0x16243b),
-    naranja: material(0xffad36, true),
-    azul: material(0x35dfff, true),
-    amarillo: material(0xffd75c),
-    madera: material(0x94633c),
-    rojo: material(0xff5369, true),
-    violeta: material(0xa77bff, true)
+    suelo: crearMaterial(0x287252),
+    carretera: crearMaterial(0x283142),
+    agua: crearMaterial(0x127bb6, true),
+    metal: crearMaterial(0x6d8099, true),
+    blanco: crearMaterial(0xeaf6ff),
+    negro: crearMaterial(0x152238),
+    naranja: crearMaterial(0xffaa35, true),
+    azul: crearMaterial(0x35dfff, true),
+    amarillo: crearMaterial(0xffd75c),
+    madera: crearMaterial(0x98613b),
+    rojo: crearMaterial(0xff526b, true),
+    violeta: crearMaterial(0xa27bff, true),
+    verde: crearMaterial(0x38e8a5, true)
 };
 
 function caja(w, h, d, mat, x = 0, y = 0, z = 0) {
@@ -163,11 +165,10 @@ function esfera(r, mat, x = 0, y = 0, z = 0) {
 }
 
 // =====================================================
-// 05. TEXTURA GENERADA CON CANVAS
+// 05. TEXTURA ORIGINAL CON CANVAS
 // =====================================================
 
 const lienzo = document.createElement("canvas");
-
 lienzo.width = 128;
 lienzo.height = 128;
 
@@ -193,24 +194,47 @@ for (let i = 0; i <= 128; i += 32) {
 
 const textura = new THREE.CanvasTexture(lienzo);
 
-const MAT_BALDOSAS = new THREE.MeshStandardMaterial({
+const MAT_META = new THREE.MeshStandardMaterial({
     map: textura,
     roughness: 0.8
 });
 
 // =====================================================
 // 06. TILEMAP
+//
+// S = Suelo seguro
+// C = Carretera
+// A = Agua
+// M = Meta
+// B = Borde
 // =====================================================
 
-const filasCarretera = [
-    4, 7, 10, 13,
-    17, 20, 23, 26
+const zonasCarretera = [
+    [5, 12],
+    [17, 24],
+    [29, 36]
 ];
 
-const filasAgua = [
-    33, 36, 39, 42,
-    46, 49, 52, 55
+const zonasAgua = [
+    [42, 49],
+    [54, 61],
+    [66, 72]
 ];
+
+const filasCarretera = [];
+const filasAgua = [];
+
+for (const [inicio, fin] of zonasCarretera) {
+    for (let z = inicio; z <= fin; z++) {
+        filasCarretera.push(z);
+    }
+}
+
+for (const [inicio, fin] of zonasAgua) {
+    for (let z = inicio; z <= fin; z++) {
+        filasAgua.push(z);
+    }
+}
 
 const mapa = [];
 
@@ -237,7 +261,7 @@ for (let z = 0; z < CONFIG.largoMapa; z++) {
 }
 
 // =====================================================
-// 07. CONSTRUCCION DEL NIVEL
+// 07. CONSTRUCCION DEL ESCENARIO
 // =====================================================
 
 function construirNivel() {
@@ -248,46 +272,44 @@ function construirNivel() {
 
             if (tipo === "B") {
                 escena.add(
-                    caja(1, 0.8, 1, MAT.metal, x, 0.3, z)
+                    caja(1, 0.7, 1, MAT.metal, x, 0.25, z)
                 );
                 continue;
             }
 
-            let mat = MAT.cesped;
+            let mat = MAT.suelo;
 
             if (tipo === "C") mat = MAT.carretera;
             if (tipo === "A") mat = MAT.agua;
-            if (tipo === "M") mat = MAT_BALDOSAS;
+            if (tipo === "M") mat = MAT_META;
 
             escena.add(
                 caja(1, 0.2, 1, mat, x, -0.15, z)
             );
-
-            if (tipo === "C" && c % 3 === 0) {
-                escena.add(
-                    caja(
-                        0.45,
-                        0.025,
-                        0.08,
-                        MAT.amarillo,
-                        x,
-                        -0.035,
-                        z
-                    )
-                );
-            }
         }
     }
 
-    for (let z = 0; z < CONFIG.largoMapa; z += 4) {
+    // Lineas de separacion de carriles
+    for (const z of filasCarretera) {
+        for (let x = -7; x <= 7; x += 3) {
+            escena.add(
+                caja(
+                    1.4, 0.025, 0.07,
+                    MAT.amarillo,
+                    x, -0.035, z + 0.48
+                )
+            );
+        }
+    }
+
+    // Edificios laterales
+    for (let z = 0; z < CONFIG.largoMapa; z += 5) {
         for (const lado of [-1, 1]) {
-            const altura = 2.5 + (z % 5);
+            const altura = 3 + (z % 6);
 
             escena.add(
                 caja(
-                    2.5,
-                    altura,
-                    2.5,
+                    3, altura, 3,
                     MAT.metal,
                     lado * 13,
                     altura / 2,
@@ -360,33 +382,33 @@ bolt.position.set(1, 1.8, -0.6);
 escena.add(bolt);
 
 // =====================================================
-// 10. VEHICULOS
+// 10. VEHICULOS SOBRE LAS CARRETERAS
 // =====================================================
 
 function crearVehiculo(z, x, velocidad, color) {
     const grupo = new THREE.Group();
-    const mat = material(color, true);
+    const mat = crearMaterial(color, true);
 
     grupo.add(
-        caja(2.1, 0.65, 0.9, mat, 0, 0.55, 0)
+        caja(2.2, 0.65, 0.85, mat, 0, 0.55, 0)
     );
 
     grupo.add(
-        caja(1.1, 0.42, 0.75, MAT.negro, 0, 1.05, 0)
+        caja(1.2, 0.42, 0.7, MAT.negro, 0, 1.05, 0)
     );
 
     for (const lado of [-1, 1]) {
         grupo.add(
             esfera(
                 0.22, MAT.azul,
-                lado * 0.72, 0.22, 0.42
+                lado * 0.75, 0.22, 0.43
             )
         );
 
         grupo.add(
             esfera(
                 0.22, MAT.azul,
-                lado * 0.72, 0.22, -0.42
+                lado * 0.75, 0.22, -0.43
             )
         );
     }
@@ -397,13 +419,14 @@ function crearVehiculo(z, x, velocidad, color) {
     vehiculos.push({
         mesh: grupo,
         velocidad,
-        ancho: 2.1
+        ancho: 2.2
     });
 }
 
+// Cada vehiculo se coloca en una fila de carretera
 filasCarretera.forEach((z, i) => {
     const direccion = i % 2 === 0 ? 1 : -1;
-    const velocidad = direccion * (3 + (i % 4) * 0.8);
+    const velocidad = direccion * (2.5 + (i % 4) * 0.7);
 
     for (let j = 0; j < 3; j++) {
         crearVehiculo(
@@ -421,7 +444,7 @@ filasCarretera.forEach((z, i) => {
 });
 
 // =====================================================
-// 11. TRONCOS FLOTANTES
+// 11. TRONCOS SOBRE EL RIO
 // =====================================================
 
 function crearTronco(z, x, velocidad) {
@@ -434,9 +457,7 @@ function crearTronco(z, x, velocidad) {
     for (const extremo of [-1, 1]) {
         grupo.add(
             caja(
-                0.1,
-                0.54,
-                0.9,
+                0.1, 0.54, 0.9,
                 MAT.amarillo,
                 extremo * 1.7,
                 0.2,
@@ -457,7 +478,7 @@ function crearTronco(z, x, velocidad) {
 
 filasAgua.forEach((z, i) => {
     const direccion = i % 2 === 0 ? 1 : -1;
-    const velocidad = direccion * (1.6 + (i % 4) * 0.3);
+    const velocidad = direccion * (1.4 + (i % 4) * 0.25);
 
     for (let j = 0; j < 3; j++) {
         crearTronco(
@@ -557,6 +578,7 @@ function reiniciar() {
     tiempo = CONFIG.tiempo;
     puntos = 0;
     metas = 0;
+
     invulnerable = 0;
     velocidadVertical = 0;
 
@@ -568,7 +590,6 @@ function reiniciar() {
     reaparecer();
     actualizarHUD();
     cambiarEstado(ESTADOS.JUGANDO);
-
     reloj.getDelta();
 }
 
@@ -588,10 +609,7 @@ function finalizar(victoria, mensaje) {
     UI.mensaje.textContent = mensaje;
     UI.boton.textContent = "REINICIAR MISION";
 
-    reproducirSonido(
-        victoria ? 880 : 180,
-        0.35
-    );
+    reproducirSonido(victoria ? 880 : 180, 0.35);
 }
 
 function perderVida() {
@@ -603,6 +621,7 @@ function perderVida() {
     }
 
     vidas--;
+
     reproducirSonido(150, 0.2);
     crearParticulas(astro.position, 0xff5252);
     actualizarHUD();
@@ -636,7 +655,7 @@ window.addEventListener("keydown", evento => {
 
     if (tecla === "tab") {
         if (!evento.repeat) {
-            modoCamara = modoCamara === 0 ? 1 : 0;
+            modoCamara = (modoCamara + 1) % 2;
             actualizarHUD();
         }
         return;
@@ -721,10 +740,7 @@ function reproducirSonido(frecuencia, duracion) {
             ahora
         );
 
-        ganancia.gain.setValueAtTime(
-            0.09,
-            ahora
-        );
+        ganancia.gain.setValueAtTime(0.09, ahora);
 
         ganancia.gain.exponentialRampToValueAtTime(
             0.001,
@@ -868,7 +884,7 @@ function actualizarJugador(dt) {
 }
 
 // =====================================================
-// 18. MOVIMIENTO Y RECICLAJE
+// 18. MOVIMIENTO Y RECICLAJE DE OBJETOS
 // =====================================================
 
 function actualizarObjetos(dt) {
@@ -919,7 +935,7 @@ function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-    // Vehiculos
+    // Colision con vehiculos
     if (astro.position.y < 0.65) {
         for (const vehiculo of vehiculos) {
             const diferenciaX = Math.abs(
@@ -931,7 +947,7 @@ function comprobarColisiones(dt) {
             );
 
             if (
-                diferenciaX < 1.35 &&
+                diferenciaX < 1.4 &&
                 diferenciaZ < 0.7
             ) {
                 perderVida();
@@ -940,7 +956,7 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // Agua y troncos
+    // Rio y troncos
     const filaActual = Math.round(z);
 
     if (filasAgua.includes(filaActual)) {
@@ -979,15 +995,6 @@ function comprobarColisiones(dt) {
             perderVida();
             return;
         }
-    }
-
-    // Limites laterales
-    if (
-        Math.abs(astro.position.x) >
-        CONFIG.limiteX + 0.4
-    ) {
-        perderVida();
-        return;
     }
 
     // Metas
@@ -1035,43 +1042,59 @@ function comprobarColisiones(dt) {
 // 20. CAMARA CON DOS MODOS
 // =====================================================
 
+const posicionCamara = new THREE.Vector3();
+const objetivoCamara = new THREE.Vector3();
+const miradaCamara = new THREE.Vector3(0, 1, 5);
+
 function actualizarCamara(dt) {
-    let destino;
-    let objetivo;
-
     if (modoCamara === 0) {
-        // Camara elevada
-        destino = new THREE.Vector3(
+        // Vista elevada en tercera persona
+        posicionCamara.set(
             astro.position.x,
-            astro.position.y + 10,
-            astro.position.z - 12
+            astro.position.y + 6,
+            astro.position.z - 8
         );
 
-        objetivo = new THREE.Vector3(
+        objetivoCamara.set(
             astro.position.x,
-            astro.position.y + 0.8,
-            astro.position.z + 5
+            astro.position.y + 1,
+            astro.position.z + 8
         );
+
+        camara.fov = 70;
     } else {
-        // Camara cercana al personaje
-        destino = new THREE.Vector3(
+        // Vista cercana al personaje
+        posicionCamara.set(
             astro.position.x,
-            astro.position.y + 2.5,
-            astro.position.z - 3.5
+            astro.position.y + 2.2,
+            astro.position.z - 1.8
         );
 
-        objetivo = new THREE.Vector3(
+        objetivoCamara.set(
             astro.position.x,
-            astro.position.y + 1.5,
-            astro.position.z + 7
+            astro.position.y + 1.7,
+            astro.position.z + 12
         );
+
+        camara.fov = 85;
     }
+
+    camara.updateProjectionMatrix();
 
     const suavidad =
         1 - Math.exp(-CONFIG.velocidadCamara * dt);
 
-    camara.position.lerp(destino, suavidad);
-    camara.lookAt(objetivo);
+    camara.position.lerp(
+        posicionCamara,
+        suavidad
+    );
+
+    miradaCamara.lerp(
+        objetivoCamara,
+        suavidad
+    );
+
+    camara.lookAt(miradaCamara);
 }
 
 // =====================================================
