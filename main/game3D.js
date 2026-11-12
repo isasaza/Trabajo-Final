@@ -11,7 +11,7 @@ const CONFIG = {
     fuerzaSalto: 7,
     gravedad: 18,
     anchoMapa: 19,
-    largoMapa: 35,
+    largoMapa: 65,
     velocidadCamara: 5,
     invulnerabilidad: 1.5,
     limiteX: 8.1
@@ -205,8 +205,8 @@ const MAT_BALDOSAS = new THREE.MeshStandardMaterial({
 // B = Borde
 // =====================================================
 
-const filasCarretera = [4, 7, 10, 13];
-const filasAgua = [19, 22, 25, 28];
+const filasCarretera = [4, 7, 10, 13,17,20,23,26];
+const filasAgua = [33,36,39,42,46,49,52,55];
 
 const mapa = [];
 
@@ -221,7 +221,7 @@ for (let z = 0; z < CONFIG.largoMapa; z++) {
         tipo = "A";
     }
 
-    if (z === 33) {
+    if (z === 63) {
         tipo = "M";
     }
 
@@ -392,7 +392,7 @@ function crearVehiculo(z, x, velocidad, color) {
         );
     }
 
-    grupo.position.set(x, 0, z);
+    grupo.position.set(x, 0, );
     escena.add(grupo);
 
     vehiculos.push({
@@ -489,7 +489,7 @@ for (let i = 0; i < 3; i++) {
     cristal.position.y = 1.2;
     grupo.add(cristal);
 
-    grupo.position.set(x, 0, 33);
+    grupo.position.set(x, 0, 63);
     escena.add(grupo);
 
     objetivos.push({
@@ -797,8 +797,8 @@ function actualizarJugador(dt) {
 
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
-    if (teclas["a"] || teclas["arrowleft"]) dx--;
-    if (teclas["d"] || teclas["arrowright"]) dx++;
+    if (teclas["a"] || teclas["arrowleft"]) dx++;
+    if (teclas["d"] || teclas["arrowright"]) dx--;
 
     const longitud = Math.hypot(dx, dz);
 
@@ -853,7 +853,7 @@ function actualizarJugador(dt) {
     astro.position.z = THREE.MathUtils.clamp(
         astro.position.z,
         0,
-        33.5
+        63.5
     );
 
     invulnerable = Math.max(
@@ -992,7 +992,7 @@ function comprobarColisiones(dt) {
     }
 
     // Activacion de metas
-    if (z > 32.3) {
+    if (z > 62.3) {
         for (const objetivo of objetivos) {
             if (objetivo.activada) {
                 continue;
