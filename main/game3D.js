@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 // =====================================================
 // 01. CONFIGURACION GENERAL
@@ -122,8 +123,14 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
 
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -146,7 +153,10 @@ escena.add(
     )
 );
 
-const sol = new THREE.DirectionalLight(0xc4d9ff, 2.1);
+const sol = new THREE.DirectionalLight(
+    0xc4d9ff,
+    2.1
+);
 
 sol.position.set(-18, 30, 12);
 sol.castShadow = true;
@@ -192,7 +202,10 @@ const M = {
     rojo: mat(0xff4567, 0.2, 0.8)
 };
 
-function caja(w, h, d, material, x = 0, y = 0, z = 0) {
+function caja(
+    w, h, d, material,
+    x = 0, y = 0, z = 0
+) {
     const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(w, h, d),
         material
@@ -205,7 +218,10 @@ function caja(w, h, d, material, x = 0, y = 0, z = 0) {
     return mesh;
 }
 
-function esfera(r, material, x = 0, y = 0, z = 0) {
+function esfera(
+    r, material,
+    x = 0, y = 0, z = 0
+) {
     const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(r, 16, 12),
         material
@@ -219,10 +235,13 @@ function esfera(r, material, x = 0, y = 0, z = 0) {
 
 function cilindro(
     r1, r2, h, material,
-    x = 0, y = 0, z = 0, lados = 12
+    x = 0, y = 0, z = 0,
+    lados = 12
 ) {
     const mesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(r1, r2, h, lados),
+        new THREE.CylinderGeometry(
+            r1, r2, h, lados
+        ),
         material
     );
 
@@ -241,7 +260,9 @@ function bordeNeon(geometria, color) {
 
 function anillo(radio, material, y = 0) {
     const mesh = new THREE.Mesh(
-        new THREE.TorusGeometry(radio, 0.08, 6, 24),
+        new THREE.TorusGeometry(
+            radio, 0.08, 6, 24
+        ),
         material
     );
 
@@ -252,7 +273,10 @@ function anillo(radio, material, y = 0) {
 }
 
 function azar(semilla) {
-    const n = Math.sin(semilla * 127.1 + 311.7) * 43758.5453;
+    const n = Math.sin(
+        semilla * 127.1 + 311.7
+    ) * 43758.5453;
+
     return n - Math.floor(n);
 }
 
@@ -267,13 +291,18 @@ const posicionesEstrellas = [];
 
 for (let i = 0; i < 1500; i++) {
     const angulo = azar(i + 1) * Math.PI * 2;
-    const elevacion = 0.1 + azar(i + 2000) * 1.25;
+    const elevacion =
+        0.1 + azar(i + 2000) * 1.25;
     const radio = 150;
 
     posicionesEstrellas.push(
-        Math.cos(angulo) * Math.cos(elevacion) * radio,
+        Math.cos(angulo) *
+        Math.cos(elevacion) * radio,
+
         Math.sin(elevacion) * radio,
-        Math.sin(angulo) * Math.cos(elevacion) * radio
+
+        Math.sin(angulo) *
+        Math.cos(elevacion) * radio
     );
 }
 
@@ -281,7 +310,10 @@ const geoEstrellas = new THREE.BufferGeometry();
 
 geoEstrellas.setAttribute(
     "position",
-    new THREE.Float32BufferAttribute(posicionesEstrellas, 3)
+    new THREE.Float32BufferAttribute(
+        posicionesEstrellas,
+        3
+    )
 );
 
 cielo.add(
@@ -303,11 +335,16 @@ cielo.add(
 // 06. PLANETAS
 // =====================================================
 
-function planeta(x, y, z, radio, color, conAnillos = false) {
+function planeta(
+    x, y, z, radio, color,
+    conAnillos = false
+) {
     const grupo = new THREE.Group();
 
     const cuerpo = new THREE.Mesh(
-        new THREE.SphereGeometry(radio, 32, 24),
+        new THREE.SphereGeometry(
+            radio, 32, 24
+        ),
         new THREE.MeshBasicMaterial({
             color,
             fog: false
@@ -344,16 +381,21 @@ function planeta(x, y, z, radio, color, conAnillos = false) {
 }
 
 const planetaGrande = planeta(
-    -65, 55, 110, 18, 0x6651bd, true
+    -65, 55, 110, 18,
+    0x6651bd, true
 );
 
-planeta(90, 37, 95, 9, 0x24a7bd);
+planeta(
+    90, 37, 95, 9,
+    0x24a7bd
+);
 
 // =====================================================
 // 07. NEBULOSAS PROCEDIMENTALES
 // =====================================================
 
-const canvasNebula = document.createElement("canvas");
+const canvasNebula =
+    document.createElement("canvas");
 
 canvasNebula.width = 128;
 canvasNebula.height = 128;
@@ -365,14 +407,26 @@ const grad = nc.createRadialGradient(
     64, 64, 64
 );
 
-grad.addColorStop(0, "rgba(255,255,255,0.45)");
-grad.addColorStop(0.45, "rgba(255,255,255,0.16)");
-grad.addColorStop(1, "rgba(255,255,255,0)");
+grad.addColorStop(
+    0,
+    "rgba(255,255,255,0.45)"
+);
+
+grad.addColorStop(
+    0.45,
+    "rgba(255,255,255,0.16)"
+);
+
+grad.addColorStop(
+    1,
+    "rgba(255,255,255,0)"
+);
 
 nc.fillStyle = grad;
 nc.fillRect(0, 0, 128, 128);
 
-const texturaNebula = new THREE.CanvasTexture(canvasNebula);
+const texturaNebula =
+    new THREE.CanvasTexture(canvasNebula);
 
 for (let i = 0; i < 14; i++) {
     const sprite = new THREE.Sprite(
@@ -404,13 +458,13 @@ for (let i = 0; i < 14; i++) {
 // 08. EDIFICIOS FUTURISTAS CON NEON
 // =====================================================
 
-function edificioNeon(x, z, altura, color, tipo = 0) {
+function edificioNeon(
+    x, z, altura, color, tipo = 0
+) {
     const grupo = new THREE.Group();
     const luz = mat(color, 0.2, 1.5);
 
     if (tipo === 1) {
-
-        // Torre de control circular
         grupo.add(
             cilindro(
                 1.6, 2.2, altura,
@@ -448,12 +502,20 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
         );
 
     } else if (tipo === 2) {
-
-        // Edificio escalonado
         const partes = [
             [4.6, altura * 0.4, 4.1, 0],
-            [3.5, altura * 0.35, 3.2, altura * 0.4],
-            [2.3, altura * 0.25, 2.3, altura * 0.75]
+            [
+                3.5,
+                altura * 0.35,
+                3.2,
+                altura * 0.4
+            ],
+            [
+                2.3,
+                altura * 0.25,
+                2.3,
+                altura * 0.75
+            ]
         ];
 
         for (const [w, h, d, base] of partes) {
@@ -475,12 +537,13 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
         }
 
         grupo.add(
-            esfera(0.35, luz, 0, altura + 0.3, 0)
+            esfera(
+                0.35, luz,
+                0, altura + 0.3, 0
+            )
         );
 
     } else {
-
-        // Rascacielos rectangular
         const geo = new THREE.BoxGeometry(
             3.6, altura, 3.6
         );
@@ -497,10 +560,13 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
 
         const bordes = bordeNeon(geo, color);
         bordes.position.y = altura / 2;
-
         grupo.add(bordes);
 
-        for (let y = 2.5; y < altura; y += 3.5) {
+        for (
+            let y = 2.5;
+            y < altura;
+            y += 3.5
+        ) {
             grupo.add(
                 caja(
                     3.85, 0.1, 3.85,
@@ -541,15 +607,22 @@ function decorarTramo(grupo, tramo) {
         0x9c6dff
     ];
 
-    for (let z = tramo.inicio; z <= tramo.fin; z += 4) {
+    for (
+        let z = tramo.inicio;
+        z <= tramo.fin;
+        z += 4
+    ) {
         for (const lado of [-1, 1]) {
-            const seed = z * 7 + lado * 37 + 100;
+            const seed =
+                z * 7 + lado * 37 + 100;
 
             const altura =
                 6 + Math.floor(azar(seed) * 19);
 
             const x =
-                lado * (14 + azar(seed + 4) * 5);
+                lado * (
+                    14 + azar(seed + 4) * 5
+                );
 
             const tipo =
                 Math.floor(azar(seed + 7) * 3);
@@ -560,14 +633,17 @@ function decorarTramo(grupo, tramo) {
 
             grupo.add(
                 edificioNeon(
-                    x, z, altura, color, tipo
+                    x, z, altura,
+                    color, tipo
                 )
             );
         }
     }
 
-    // Columnas luminosas en las zonas seguras
-    for (const [tipo, inicio, fin] of tramo.zonas) {
+    for (
+        const [tipo, inicio, fin]
+        of tramo.zonas
+    ) {
         if (
             tipo !== "suelo" &&
             tipo !== "checkpoint"
@@ -575,7 +651,11 @@ function decorarTramo(grupo, tramo) {
             continue;
         }
 
-        for (let z = inicio; z <= fin; z += 3) {
+        for (
+            let z = inicio;
+            z <= fin;
+            z += 3
+        ) {
             for (const x of [-8.3, 8.3]) {
                 grupo.add(
                     cilindro(
@@ -614,12 +694,18 @@ function crearNave(i) {
     );
 
     grupo.add(
-        esfera(0.4, M.visor, 0, 0.2, 0.45)
+        esfera(
+            0.4, M.visor,
+            0, 0.2, 0.45
+        )
     );
 
     for (const x of [-1.45, 1.45]) {
         grupo.add(
-            esfera(0.16, M.rosa, x, -0.1, 0)
+            esfera(
+                0.16, M.rosa,
+                x, -0.1, 0
+            )
         );
     }
 
@@ -637,7 +723,9 @@ function crearNave(i) {
     );
 
     grupo.rotation.y =
-        velocidad > 0 ? Math.PI / 2 : -Math.PI / 2;
+        velocidad > 0
+            ? Math.PI / 2
+            : -Math.PI / 2;
 
     escena.add(grupo);
 
@@ -655,11 +743,14 @@ for (let i = 0; i < 9; i++) {
 
 function actualizarNaves(dt) {
     for (const nave of naves) {
-        nave.mesh.position.x += nave.velocidad * dt;
+        nave.mesh.position.x +=
+            nave.velocidad * dt;
 
         nave.mesh.position.y =
             nave.baseY +
-            Math.sin(relojMundo * 1.4 + nave.fase) * 0.5;
+            Math.sin(
+                relojMundo * 1.4 + nave.fase
+            ) * 0.5;
 
         if (nave.mesh.position.x > 48) {
             nave.mesh.position.x = -48;
@@ -672,11 +763,12 @@ function actualizarNaves(dt) {
 }
 
 // =====================================================
-// 11. ASTRO PROVISIONAL
+// 11. ASTRO PROVISIONAL + MODELO GLB
 // =====================================================
 
 const astro = new THREE.Group();
 
+// Personaje provisional de respaldo
 astro.add(
     caja(
         0.65, 0.85, 0.42,
@@ -686,7 +778,10 @@ astro.add(
 );
 
 astro.add(
-    esfera(0.46, M.casco, 0, 1.75, 0)
+    esfera(
+        0.46, M.casco,
+        0, 1.75, 0
+    )
 );
 
 astro.add(
@@ -721,90 +816,137 @@ const piernaD = caja(
     0.2, 0.35, 0
 );
 
-astro.add(brazoI, brazoD, piernaI, piernaD);
+astro.add(
+    brazoI,
+    brazoD,
+    piernaI,
+    piernaD
+);
+
 escena.add(astro);
 
 // Guardar piezas del personaje provisional
 const astroProvisional = [...astro.children];
 
-// Variables del nuevo modelo 3D
+// Variables del modelo nuevo
 let modeloAstro = null;
 let mezcladorAstro = null;
 
-// Cargar personaje desde la carpeta models
+// =====================================================
+// 11.1 CARGAR PERSONAJE DESDE MODELOS
+// =====================================================
+
 const loaderPersonaje = new GLTFLoader();
 
+const rutaPersonaje = new URL(
+    "../modelos/personaje.glb",
+    import.meta.url
+);
+
 loaderPersonaje.load(
-    "./models/personaje.glb",
+    rutaPersonaje.href,
 
     (gltf) => {
         const modelo = gltf.scene;
 
         modelo.updateMatrixWorld(true);
 
-        // Medir el modelo original
-        const limites = new THREE.Box3().setFromObject(modelo);
-        const dimensiones = limites.getSize(new THREE.Vector3());
+        const limites =
+            new THREE.Box3().setFromObject(modelo);
 
-        if (dimensiones.y <= 0.0001) {
-            console.error("El GLB no tiene una altura valida.");
+        const dimensiones = limites.getSize(
+            new THREE.Vector3()
+        );
+
+        if (
+            !Number.isFinite(dimensiones.y) ||
+            dimensiones.y <= 0.0001
+        ) {
+            console.error(
+                "El GLB no tiene una altura valida."
+            );
             return;
         }
 
-        // Ajustar altura del personaje a 2.1 unidades
-        modelo.scale.multiplyScalar(2.1 / dimensiones.y);
+        // Ajustar altura a 2.1 unidades
+        modelo.scale.multiplyScalar(
+            2.1 / dimensiones.y
+        );
+
         modelo.updateMatrixWorld(true);
 
-        // Centrar modelo y apoyar los pies en el suelo
-        const limitesEscalados = new THREE.Box3().setFromObject(modelo);
-        const centro = limitesEscalados.getCenter(new THREE.Vector3());
+        // Centrar el modelo
+        const limitesEscalados =
+            new THREE.Box3().setFromObject(modelo);
+
+        const centro = limitesEscalados.getCenter(
+            new THREE.Vector3()
+        );
 
         modelo.position.x -= centro.x;
         modelo.position.z -= centro.z;
         modelo.position.y -= limitesEscalados.min.y;
 
-        // Conservar materiales y texturas originales
+        // Conservar materiales y texturas
         modelo.traverse((obj) => {
             if (!obj.isMesh) return;
 
             obj.castShadow = true;
             obj.receiveShadow = true;
 
-            const materiales = Array.isArray(obj.material)
-                ? obj.material
-                : [obj.material];
+            const materiales =
+                Array.isArray(obj.material)
+                    ? obj.material
+                    : [obj.material];
 
             for (const material of materiales) {
                 if (!material) continue;
 
-                console.log("Material del personaje:", {
-                    nombre: material.name || "sin nombre",
-                    color: material.color?.getHexString(),
-                    tieneTextura: !!material.map,
-                    coloresVertices: !!material.vertexColors
-                });
+                console.log(
+                    "Material del personaje:",
+                    {
+                        nombre:
+                            material.name ||
+                            "sin nombre",
+
+                        color:
+                            material.color
+                                ?.getHexString(),
+
+                        tieneTextura:
+                            !!material.map,
+
+                        coloresVertices:
+                            !!material.vertexColors
+                    }
+                );
             }
         });
 
-        // Incorporar nuevo personaje
+        // Incorporar el nuevo personaje
         astro.add(modelo);
 
-        // Ocultar personaje provisional
+        // Ocultar el personaje anterior
         astroProvisional.forEach(pieza => {
             pieza.visible = false;
         });
 
         modeloAstro = modelo;
 
-        // Reproducir animaciones si existen
-        if (gltf.animations && gltf.animations.length > 0) {
-            mezcladorAstro = new THREE.AnimationMixer(modelo);
+        // Reproducir animaciones
+        if (
+            gltf.animations &&
+            gltf.animations.length > 0
+        ) {
+            mezcladorAstro =
+                new THREE.AnimationMixer(modelo);
 
             const reposo = gltf.animations.find(
                 a => /idle|stand|reposo/i.test(a.name)
             );
 
-            const clip = reposo || gltf.animations[0];
+            const clip =
+                reposo || gltf.animations[0];
 
             mezcladorAstro.clipAction(clip).play();
 
@@ -814,19 +956,21 @@ loaderPersonaje.load(
             );
         }
 
-        console.log("PERSONAJE GLB CARGADO CORRECTAMENTE");
+        console.log(
+            "PERSONAJE GLB CARGADO CORRECTAMENTE"
+        );
     },
 
     undefined,
 
     (error) => {
         console.error(
-            "No se pudo cargar ./models/personaje.glb",
+            "No se pudo cargar personaje.glb",
             error
         );
 
         console.warn(
-            "Se mantiene el personaje Astro provisional."
+            "Se mantiene Astro provisional."
         );
     }
 );
@@ -838,7 +982,13 @@ loaderPersonaje.load(
 const bolt = new THREE.Group();
 
 bolt.add(esfera(0.33, M.casco));
-bolt.add(esfera(0.17, M.visor, 0, 0, 0.3));
+
+bolt.add(
+    esfera(
+        0.17, M.visor,
+        0, 0, 0.3
+    )
+);
 
 bolt.add(
     caja(
@@ -852,11 +1002,15 @@ bolt.position.set(1, 1.8, -0.6);
 escena.add(bolt);
 
 // =====================================================
-// 13. VEHICULOS PROVISIONALES
+// 13. VEHICULOS
 // =====================================================
 
 function crearVehiculo(
-    grupoTramo, z, x, velocidad, indice
+    grupoTramo,
+    z,
+    x,
+    velocidad,
+    indice
 ) {
     const grupo = new THREE.Group();
 
@@ -892,14 +1046,18 @@ function crearVehiculo(
         grupo.add(
             esfera(
                 0.17, M.cian,
-                lado * 0.85, 0.23, 0.44
+                lado * 0.85,
+                0.23,
+                0.44
             )
         );
 
         grupo.add(
             esfera(
                 0.17, M.cian,
-                lado * 0.85, 0.23, -0.44
+                lado * 0.85,
+                0.23,
+                -0.44
             )
         );
     }
@@ -916,7 +1074,11 @@ function crearVehiculo(
 function crearCarriles(grupo, zona, tramo) {
     let i = 0;
 
-    for (let z = zona[1]; z <= zona[2]; z += 2) {
+    for (
+        let z = zona[1];
+        z <= zona[2];
+        z += 2
+    ) {
         const vel =
             (i % 2 === 0 ? 1 : -1) *
             (tramo.carros + (i % 3) * 0.4);
@@ -936,10 +1098,15 @@ function crearCarriles(grupo, zona, tramo) {
 }
 
 // =====================================================
-// 14. TRONCOS PROVISIONALES
+// 14. TRONCOS
 // =====================================================
 
-function crearTronco(grupoTramo, z, x, velocidad) {
+function crearTronco(
+    grupoTramo,
+    z,
+    x,
+    velocidad
+) {
     const grupo = new THREE.Group();
 
     grupo.add(
@@ -955,7 +1122,9 @@ function crearTronco(grupoTramo, z, x, velocidad) {
             caja(
                 0.1, 0.54, 0.9,
                 M.cian,
-                extremo * 1.7, 0.2, 0
+                extremo * 1.7,
+                0.2,
+                0
             )
         );
     }
@@ -970,7 +1139,11 @@ function crearTronco(grupoTramo, z, x, velocidad) {
 }
 
 function crearRio(grupo, zona, tramo) {
-    for (let z = zona[1]; z <= zona[2]; z++) {
+    for (
+        let z = zona[1];
+        z <= zona[2];
+        z++
+    ) {
         const vel =
             ((z - zona[1]) % 2 === 0 ? 1 : -1) *
             tramo.troncos;
@@ -991,7 +1164,11 @@ function crearRio(grupo, zona, tramo) {
 // =====================================================
 
 function crearSierras(grupo, zona) {
-    for (let z = zona[1]; z <= zona[2]; z += 2) {
+    for (
+        let z = zona[1];
+        z <= zona[2];
+        z += 2
+    ) {
         const s = new THREE.Group();
 
         const disco = cilindro(
@@ -1066,7 +1243,12 @@ function crearGema(grupo, numero, z) {
 function crearTrofeo(grupo, z) {
     const t = new THREE.Group();
 
-    t.add(caja(2.7, 0.25, 2.3, M.metal));
+    t.add(
+        caja(
+            2.7, 0.25, 2.3,
+            M.metal
+        )
+    );
 
     t.add(
         cilindro(
@@ -1119,8 +1301,6 @@ function construirTramo(tramo) {
             M.pasto;
 
         for (let z = inicio; z <= fin; z++) {
-
-            // Terreno central
             grupo.add(
                 caja(
                     19, 0.2, 1,
@@ -1133,7 +1313,6 @@ function construirTramo(tramo) {
                 filasAgua.add(z);
             }
 
-            // Carreteras y rios abiertos lateralmente
             if (
                 tipo === "carretera" ||
                 tipo === "agua"
@@ -1151,20 +1330,24 @@ function construirTramo(tramo) {
                 }
             }
 
-            // Franjas luminosas de carretera
             if (tipo === "carretera") {
-                for (let x = -21; x <= 21; x += 4) {
+                for (
+                    let x = -21;
+                    x <= 21;
+                    x += 4
+                ) {
                     grupo.add(
                         caja(
                             1.5, 0.025, 0.07,
                             M.cian,
-                            x, -0.035, z + 0.48
+                            x,
+                            -0.035,
+                            z + 0.48
                         )
                     );
                 }
             }
 
-            // Iluminacion de checkpoints
             if (tipo === "checkpoint") {
                 for (const x of [-6, 6]) {
                     grupo.add(
@@ -1191,7 +1374,6 @@ function construirTramo(tramo) {
         }
     }
 
-    // Edificios futuristas del nuevo sector
     decorarTramo(grupo, tramo);
 
     if (tramo.id < 2) {
@@ -1201,7 +1383,10 @@ function construirTramo(tramo) {
             tramo.fin - 1
         );
     } else {
-        crearTrofeo(grupo, tramo.fin - 1);
+        crearTrofeo(
+            grupo,
+            tramo.fin - 1
+        );
     }
 }
 
@@ -1261,7 +1446,10 @@ function cambiarEstado(nuevo) {
 // =====================================================
 
 function reaparecer() {
-    astro.position.set(0, 0, checkpointZ);
+    astro.position.set(
+        0, 0, checkpointZ
+    );
+
     astro.rotation.y = 0;
     velocidadVertical = 0;
     invulnerable = CONFIG.invulnerabilidad;
@@ -1315,14 +1503,20 @@ function reiniciar() {
 
 function finalizar(gano, mensaje) {
     cambiarEstado(
-        gano ? ESTADO.VICTORIA : ESTADO.FIN
+        gano
+            ? ESTADO.VICTORIA
+            : ESTADO.FIN
     );
 
     UI.titulo.textContent =
-        gano ? "MISION COMPLETADA" : "GAME OVER";
+        gano
+            ? "MISION COMPLETADA"
+            : "GAME OVER";
 
     UI.subtitulo.textContent =
-        gano ? "ASTRO & BOLT" : "MISION FALLIDA";
+        gano
+            ? "ASTRO & BOLT"
+            : "MISION FALLIDA";
 
     UI.mensaje.textContent = mensaje;
     UI.jugar.textContent = "REINICIAR MISION";
@@ -1339,7 +1533,10 @@ function perderVida() {
     vidas--;
 
     reproducirSfx(SONIDOS.muerte);
-    crearParticulas(astro.position, 0xff496f);
+    crearParticulas(
+        astro.position,
+        0xff496f
+    );
 
     if (vidas <= 0) {
         finalizar(
@@ -1370,7 +1567,9 @@ function recogerGema(gema) {
     checkpointZ = gema.z;
 
     crearParticulas(
-        new THREE.Vector3(0, 0, gema.z),
+        new THREE.Vector3(
+            0, 0, gema.z
+        ),
         0x25eaff
     );
 
@@ -1378,7 +1577,10 @@ function recogerGema(gema) {
 
     tramoActual = gemasRecogidas;
 
-    construirTramo(TRAMOS[tramoActual]);
+    construirTramo(
+        TRAMOS[tramoActual]
+    );
+
     actualizarHUD();
 }
 
@@ -1407,6 +1609,7 @@ window.addEventListener("keydown", e => {
             modoCamara = 1 - modoCamara;
             actualizarHUD();
         }
+
         return;
     }
 
@@ -1418,6 +1621,7 @@ window.addEventListener("keydown", e => {
     ) {
         if (estado === ESTADO.JUEGO) {
             cambiarEstado(ESTADO.PAUSA);
+
         } else if (estado === ESTADO.PAUSA) {
             cambiarEstado(ESTADO.JUEGO);
             reloj.getDelta();
@@ -1449,7 +1653,10 @@ window.addEventListener("blur", () => {
     }
 });
 
-UI.jugar.addEventListener("click", reiniciar);
+UI.jugar.addEventListener(
+    "click",
+    reiniciar
+);
 
 UI.continuar.addEventListener("click", () => {
     cambiarEstado(ESTADO.JUEGO);
@@ -1460,14 +1667,37 @@ UI.continuar.addEventListener("click", () => {
 // 21. SONIDOS Y MUSICA
 // =====================================================
 
+// Se conservan los nombres originales de los archivos
+// que agrego tu compañero.
+
 const SONIDOS = {
-    muerte: new Audio("sonidos/death sound.mp3"),
-    gameOver: new Audio("sonidos/Game over sound.mp3"),
-    ganaste: new Audio("sonidos/Ganaste musica.mp3"),
-    salto: new Audio("sonidos/Jump sound.mp3"),
-    menu: new Audio("sonidos/menu musica.mp3"),
-    fondo: new Audio("sonidos/musica de fondo.mp3"),
-    pausa: new Audio("sonidos/musica de pausa.mp3")
+    muerte: new Audio(
+        "sonidos/death sound.mp3"
+    ),
+
+    gameOver: new Audio(
+        "sonidos/Game over sound.mp3"
+    ),
+
+    ganaste: new Audio(
+        "sonidos/Ganaste musica.mp3"
+    ),
+
+    salto: new Audio(
+        "sonidos/Jump sound.mp3"
+    ),
+
+    menu: new Audio(
+        "sonidos/menu musica.mp3"
+    ),
+
+    fondo: new Audio(
+        "sonidos/musica de fondo.mp3"
+    ),
+
+    pausa: new Audio(
+        "sonidos/musica de pausa.mp3"
+    )
 };
 
 SONIDOS.menu.loop = true;
@@ -1485,40 +1715,65 @@ SONIDOS.salto.volume = 0.5;
 let musicaActiva = null;
 
 function detenerMusica() {
-    [SONIDOS.menu, SONIDOS.fondo, SONIDOS.pausa, SONIDOS.ganaste, SONIDOS.gameOver].forEach(a => {
+    [
+        SONIDOS.menu,
+        SONIDOS.fondo,
+        SONIDOS.pausa,
+        SONIDOS.ganaste,
+        SONIDOS.gameOver
+    ].forEach(a => {
         a.pause();
         a.currentTime = 0;
     });
+
     musicaActiva = null;
 }
 
 function reproducirSfx(audio) {
     try {
         audio.currentTime = 0;
+
         audio.play().catch(() => {});
+
     } catch (err) {
-        console.warn("Audio no disponible", err);
+        console.warn(
+            "Audio no disponible",
+            err
+        );
     }
 }
 
 function actualizarAudioEstado(nuevoEstado) {
     if (nuevoEstado === ESTADO.PAUSA) {
         SONIDOS.fondo.pause();
+
         musicaActiva = SONIDOS.pausa;
         SONIDOS.pausa.currentTime = 0;
+
         SONIDOS.pausa.play().catch(() => {});
+
         return;
     }
 
-    if (nuevoEstado === ESTADO.JUEGO && !SONIDOS.fondo.paused) {
+    if (
+        nuevoEstado === ESTADO.JUEGO &&
+        !SONIDOS.fondo.paused
+    ) {
         return;
     }
 
-    if (nuevoEstado === ESTADO.JUEGO && SONIDOS.fondo.currentTime > 0 && musicaActiva === SONIDOS.pausa) {
+    if (
+        nuevoEstado === ESTADO.JUEGO &&
+        SONIDOS.fondo.currentTime > 0 &&
+        musicaActiva === SONIDOS.pausa
+    ) {
         SONIDOS.pausa.pause();
         SONIDOS.pausa.currentTime = 0;
+
         musicaActiva = SONIDOS.fondo;
+
         SONIDOS.fondo.play().catch(() => {});
+
         return;
     }
 
@@ -1526,31 +1781,59 @@ function actualizarAudioEstado(nuevoEstado) {
 
     if (nuevoEstado === ESTADO.INICIO) {
         musicaActiva = SONIDOS.menu;
+
         SONIDOS.menu.play().catch(() => {});
+
     } else if (nuevoEstado === ESTADO.JUEGO) {
         musicaActiva = SONIDOS.fondo;
+
         SONIDOS.fondo.play().catch(() => {});
+
     } else if (nuevoEstado === ESTADO.FIN) {
         musicaActiva = SONIDOS.gameOver;
+
         SONIDOS.gameOver.play().catch(() => {});
-    } else if (nuevoEstado === ESTADO.VICTORIA) {
+
+    } else if (
+        nuevoEstado === ESTADO.VICTORIA
+    ) {
         musicaActiva = SONIDOS.ganaste;
+
         SONIDOS.ganaste.play().catch(() => {});
     }
 }
 
-// Desbloqueo automatico de audio en la primera interaccion del usuario
+// Desbloquear audio tras la primera interaccion
 function desbloquearAudio() {
-    if (musicaActiva && musicaActiva.paused) {
+    if (
+        musicaActiva &&
+        musicaActiva.paused
+    ) {
         musicaActiva.play().catch(() => {});
     }
-    window.removeEventListener("pointerdown", desbloquearAudio);
-    window.removeEventListener("keydown", desbloquearAudio);
+
+    window.removeEventListener(
+        "pointerdown",
+        desbloquearAudio
+    );
+
+    window.removeEventListener(
+        "keydown",
+        desbloquearAudio
+    );
 }
 
-window.addEventListener("pointerdown", desbloquearAudio);
-window.addEventListener("keydown", desbloquearAudio);
+window.addEventListener(
+    "pointerdown",
+    desbloquearAudio
+);
 
+window.addEventListener(
+    "keydown",
+    desbloquearAudio
+);
+
+// Sonido sintetizado para las gemas
 let audioCtx = null;
 
 function sonido(frecuencia, duracion) {
@@ -1577,7 +1860,10 @@ function sonido(frecuencia, duracion) {
             t
         );
 
-        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.setValueAtTime(
+            0.08,
+            t
+        );
 
         gain.gain.exponentialRampToValueAtTime(
             0.001,
@@ -1591,7 +1877,10 @@ function sonido(frecuencia, duracion) {
         osc.stop(t + duracion);
 
     } catch (err) {
-        console.warn("Audio no disponible", err);
+        console.warn(
+            "Audio no disponible",
+            err
+        );
     }
 }
 
@@ -1603,7 +1892,9 @@ function crearParticulas(pos, color) {
     for (let i = 0; i < 12; i++) {
         const p = esfera(
             0.09,
-            new THREE.MeshBasicMaterial({ color }),
+            new THREE.MeshBasicMaterial({
+                color
+            }),
             pos.x,
             pos.y + 1,
             pos.z
@@ -1644,6 +1935,7 @@ function actualizarParticulas(dt) {
             escena.remove(p.mesh);
             p.mesh.geometry.dispose();
             p.mesh.material.dispose();
+
             particulas.splice(i, 1);
         }
     }
@@ -1657,11 +1949,34 @@ function actualizarJugador(dt) {
     let dx = 0;
     let dz = 0;
 
-    // CONTROLES EXACTAMENTE COMO TU FOTOGRAFIA
-    if (teclas["w"] || teclas["arrowup"]) dz++;
-    if (teclas["s"] || teclas["arrowdown"]) dz--;
-    if (teclas["a"] || teclas["arrowright"]) dx++;
-    if (teclas["d"] || teclas["arrowleft"]) dx--;
+    // Controles originales
+    if (
+        teclas["w"] ||
+        teclas["arrowup"]
+    ) {
+        dz++;
+    }
+
+    if (
+        teclas["s"] ||
+        teclas["arrowdown"]
+    ) {
+        dz--;
+    }
+
+    if (
+        teclas["a"] ||
+        teclas["arrowright"]
+    ) {
+        dx++;
+    }
+
+    if (
+        teclas["d"] ||
+        teclas["arrowleft"]
+    ) {
+        dx--;
+    }
 
     const longitud = Math.hypot(dx, dz);
 
@@ -1692,12 +2007,16 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
+    // Salto y gravedad
     if (
         astro.position.y > 0 ||
         velocidadVertical > 0
     ) {
-        velocidadVertical -= CONFIG.gravedad * dt;
-        astro.position.y += velocidadVertical * dt;
+        velocidadVertical -=
+            CONFIG.gravedad * dt;
+
+        astro.position.y +=
+            velocidadVertical * dt;
 
         if (astro.position.y < 0) {
             astro.position.y = 0;
@@ -1726,7 +2045,9 @@ function actualizarJugador(dt) {
         modoCamara === 0 &&
         (
             invulnerable <= 0 ||
-            Math.floor(invulnerable * 10) % 2 === 0
+            Math.floor(
+                invulnerable * 10
+            ) % 2 === 0
         );
 }
 
@@ -1735,7 +2056,9 @@ function actualizarJugador(dt) {
 // =====================================================
 
 function actualizarMoviles(dt) {
-    for (const lista of [vehiculos, troncos]) {
+    for (
+        const lista of [vehiculos, troncos]
+    ) {
         for (const obj of lista) {
             obj.mesh.position.x +=
                 obj.velocidad * dt;
@@ -1777,7 +2100,7 @@ function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-    // Colisiones con vehiculos
+    // Vehiculos
     if (astro.position.y < 0.65) {
         for (const v of vehiculos) {
             if (
@@ -1794,7 +2117,7 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // Colisiones con sierras
+    // Sierras
     if (astro.position.y < 1.5) {
         for (const s of sierras) {
             if (
@@ -1836,11 +2159,12 @@ function comprobarColisiones(dt) {
             astro.position.x +=
                 soporte.velocidad * dt;
 
-            astro.position.x = THREE.MathUtils.clamp(
-                astro.position.x,
-                -CONFIG.limiteX,
-                CONFIG.limiteX
-            );
+            astro.position.x =
+                THREE.MathUtils.clamp(
+                    astro.position.x,
+                    -CONFIG.limiteX,
+                    CONFIG.limiteX
+                );
         }
 
         if (
@@ -1852,11 +2176,14 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // Recoleccion de gemas
+    // Gemas
     for (const gema of gemas) {
         if (
             !gema.recogida &&
-            Math.hypot(x, z - gema.z) < 1.1
+            Math.hypot(
+                x,
+                z - gema.z
+            ) < 1.1
         ) {
             recogerGema(gema);
             return;
@@ -1887,7 +2214,9 @@ function comprobarColisiones(dt) {
 
 const posCamara = new THREE.Vector3();
 const mirar = new THREE.Vector3();
-const mirarSuave = new THREE.Vector3(0, 1, 5);
+
+const mirarSuave =
+    new THREE.Vector3(0, 1, 5);
 
 let fovActual = 70;
 
@@ -1920,10 +2249,19 @@ function actualizarCamara(dt) {
     }
 
     const t =
-        1 - Math.exp(-CONFIG.velocidadCamara * dt);
+        1 - Math.exp(
+            -CONFIG.velocidadCamara * dt
+        );
 
-    camara.position.lerp(posCamara, t);
-    mirarSuave.lerp(mirar, t);
+    camara.position.lerp(
+        posCamara,
+        t
+    );
+
+    mirarSuave.lerp(
+        mirar,
+        t
+    );
 
     camara.lookAt(mirarSuave);
 
@@ -1933,13 +2271,14 @@ function actualizarCamara(dt) {
         t
     );
 
-    if (Math.abs(fov - fovActual) > 0.001) {
+    if (
+        Math.abs(fov - fovActual) > 0.001
+    ) {
         fovActual = fov;
         camara.fov = fov;
         camara.updateProjectionMatrix();
     }
 
-    // El cielo acompana al jugador
     cielo.position.set(
         astro.position.x,
         0,
@@ -1955,8 +2294,13 @@ function actualizarDecoracion(dt) {
     bolt.position.lerp(
         new THREE.Vector3(
             astro.position.x + 1,
-            astro.position.y + 1.8 +
-                Math.sin(relojMundo * 3) * 0.15,
+
+            astro.position.y +
+            1.8 +
+            Math.sin(
+                relojMundo * 3
+            ) * 0.15,
+
             astro.position.z - 0.6
         ),
         1 - Math.exp(-5 * dt)
@@ -1969,11 +2313,14 @@ function actualizarDecoracion(dt) {
 
     for (const gema of gemas) {
         if (!gema.recogida) {
-            gema.cristal.rotation.y += dt * 1.6;
+            gema.cristal.rotation.y +=
+                dt * 1.6;
 
             gema.cristal.position.y =
                 1.35 +
-                Math.sin(relojMundo * 2) * 0.15;
+                Math.sin(
+                    relojMundo * 2
+                ) * 0.15;
         }
     }
 
@@ -2013,13 +2360,23 @@ function animar() {
             actualizarNaves(dt);
             actualizarDecoracion(dt);
             actualizarParticulas(dt);
+
+            // NUEVO:
+            // Actualizar animaciones del GLB
+            if (mezcladorAstro) {
+                mezcladorAstro.update(dt);
+            }
         }
 
         actualizarHUD();
     }
 
     actualizarCamara(dt);
-    renderer.render(escena, camara);
+
+    renderer.render(
+        escena,
+        camara
+    );
 }
 
 // =====================================================
@@ -2027,8 +2384,13 @@ function animar() {
 // =====================================================
 
 construirTramo(TRAMOS[0]);
+
 actualizarHUD();
-actualizarAudioEstado(ESTADO.INICIO);
+
+actualizarAudioEstado(
+    ESTADO.INICIO
+);
+
 animar();
 
 // =====================================================
@@ -2037,7 +2399,8 @@ animar();
 
 window.addEventListener("resize", () => {
     camara.aspect =
-        window.innerWidth / window.innerHeight;
+        window.innerWidth /
+        window.innerHeight;
 
     camara.updateProjectionMatrix();
 
