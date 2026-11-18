@@ -1,8 +1,5 @@
 import * as THREE from "three";
 
-import { GLTFLoader } from
-"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
-
 // =====================================================
 // 01. CONFIGURACION GENERAL
 // =====================================================
@@ -675,12 +672,8 @@ function actualizarNaves(dt) {
 }
 
 // =====================================================
-// 11. ASTRO PROVISIONAL Y PERSONAJE GLB
+// 11. ASTRO PROVISIONAL
 // =====================================================
-
-// Astro es el grupo principal del jugador.
-// Conservamos este grupo porque el movimiento,
-// las colisiones y las camaras dependen de el.
 
 const astro = new THREE.Group();
 
@@ -731,113 +724,6 @@ const piernaD = caja(
 astro.add(brazoI, brazoD, piernaI, piernaD);
 escena.add(astro);
 
-// Guardar piezas del personaje provisional
-const astroProvisional = [...astro.children];
-
-// Variables del nuevo modelo 3D
-let modeloAstro = null;
-let mezcladorAstro = null;
-
-// Cargar personaje desde la carpeta models
-const loaderPersonaje = new GLTFLoader();
-
-loaderPersonaje.load(
-    "./models/personaje.glb",
-
-    (gltf) => {
-        const modelo = gltf.scene;
-
-        modelo.updateMatrixWorld(true);
-
-        // Medir el modelo original
-        const limites = new THREE.Box3().setFromObject(modelo);
-        const dimensiones = limites.getSize(new THREE.Vector3());
-
-        if (dimensiones.y <= 0.0001) {
-            console.error("El GLB no tiene una altura valida.");
-            return;
-        }
-
-        // Ajustar altura del personaje a 2.1 unidades
-        modelo.scale.multiplyScalar(2.1 / dimensiones.y);
-        modelo.updateMatrixWorld(true);
-
-        // Centrar modelo y apoyar los pies en el suelo
-        const limitesEscalados = new THREE.Box3().setFromObject(modelo);
-        const centro = limitesEscalados.getCenter(new THREE.Vector3());
-
-        modelo.position.x -= centro.x;
-        modelo.position.z -= centro.z;
-        modelo.position.y -= limitesEscalados.min.y;
-
-        // Conservar materiales y texturas originales
-        modelo.traverse((obj) => {
-            if (!obj.isMesh) return;
-
-            obj.castShadow = true;
-            obj.receiveShadow = true;
-
-            const materiales = Array.isArray(obj.material)
-                ? obj.material
-                : [obj.material];
-
-            for (const material of materiales) {
-                if (!material) continue;
-
-                console.log("Material del personaje:", {
-                    nombre: material.name || "sin nombre",
-                    color: material.color?.getHexString(),
-                    tieneTextura: !!material.map,
-                    coloresVertices: !!material.vertexColors
-                });
-            }
-        });
-
-        // Incorporar nuevo personaje
-        astro.add(modelo);
-
-        // Ocultar personaje provisional
-        astroProvisional.forEach(pieza => {
-            pieza.visible = false;
-        });
-
-        modeloAstro = modelo;
-
-        // Reproducir animaciones si existen
-        if (gltf.animations && gltf.animations.length > 0) {
-            mezcladorAstro = new THREE.AnimationMixer(modelo);
-
-            const reposo = gltf.animations.find(
-                a => /idle|stand|reposo/i.test(a.name)
-            );
-
-            const clip = reposo || gltf.animations[0];
-
-            mezcladorAstro.clipAction(clip).play();
-
-            console.log(
-                "Animaciones disponibles:",
-                gltf.animations.map(a => a.name)
-            );
-        }
-
-        console.log("PERSONAJE GLB CARGADO CORRECTAMENTE");
-    },
-
-    undefined,
-
-    (error) => {
-        console.error(
-            "No se pudo cargar ./models/personaje.glb",
-            error
-        );
-
-        console.warn(
-            "Se mantiene el personaje Astro provisional."
-        );
-    }
-);
-
 // =====================================================
 // 12. BOLT PROVISIONAL
 // =====================================================
@@ -859,7 +745,7 @@ bolt.position.set(1, 1.8, -0.6);
 escena.add(bolt);
 
 // =====================================================
-// 13. VEHICULOS
+// 13. VEHICULOS PROVISIONALES
 // =====================================================
 
 function crearVehiculo(
@@ -943,7 +829,7 @@ function crearCarriles(grupo, zona, tramo) {
 }
 
 // =====================================================
-// 14. TRONCOS
+// 14. TRONCOS PROVISIONALES
 // =====================================================
 
 function crearTronco(grupoTramo, z, x, velocidad) {
@@ -1259,6 +1145,8 @@ function cambiarEstado(nuevo) {
         "hidden",
         estado !== ESTADO.PAUSA
     );
+
+    actualizarAudioEstado(estado);
 }
 
 // =====================================================
@@ -1331,8 +1219,6 @@ function finalizar(gano, mensaje) {
 
     UI.mensaje.textContent = mensaje;
     UI.jugar.textContent = "REINICIAR MISION";
-
-    sonido(gano ? 880 : 170, 0.35);
 }
 
 function perderVida() {
@@ -1345,7 +1231,7 @@ function perderVida() {
 
     vidas--;
 
-    sonido(155, 0.18);
+    reproducirSfx(SONIDOS.muerte);
     crearParticulas(astro.position, 0xff496f);
 
     if (vidas <= 0) {
@@ -1438,7 +1324,7 @@ window.addEventListener("keydown", e => {
         astro.position.y <= 0.01
     ) {
         velocidadVertical = CONFIG.salto;
-        sonido(450, 0.09);
+        reproducirSfx(SONIDOS.salto);
     }
 });
 
@@ -1464,8 +1350,99 @@ UI.continuar.addEventListener("click", () => {
 });
 
 // =====================================================
-// 21. SONIDOS
+// 21. SONIDOS Y MUSICA
 // =====================================================
+
+const SONIDOS = {
+    muerte: new Audio("sonidos/death sound.mp3"),
+    gameOver: new Audio("sonidos/Game over sound.mp3"),
+    ganaste: new Audio("sonidos/Ganaste musica.mp3"),
+    salto: new Audio("sonidos/Jump sound.mp3"),
+    menu: new Audio("sonidos/menu musica.mp3"),
+    fondo: new Audio("sonidos/musica de fondo.mp3"),
+    pausa: new Audio("sonidos/musica de pausa.mp3")
+};
+
+SONIDOS.menu.loop = true;
+SONIDOS.fondo.loop = true;
+SONIDOS.pausa.loop = true;
+
+SONIDOS.menu.volume = 0.45;
+SONIDOS.fondo.volume = 0.4;
+SONIDOS.pausa.volume = 0.35;
+SONIDOS.ganaste.volume = 0.55;
+SONIDOS.gameOver.volume = 0.6;
+SONIDOS.muerte.volume = 0.7;
+SONIDOS.salto.volume = 0.5;
+
+let musicaActiva = null;
+
+function detenerMusica() {
+    [SONIDOS.menu, SONIDOS.fondo, SONIDOS.pausa, SONIDOS.ganaste, SONIDOS.gameOver].forEach(a => {
+        a.pause();
+        a.currentTime = 0;
+    });
+    musicaActiva = null;
+}
+
+function reproducirSfx(audio) {
+    try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+    } catch (err) {
+        console.warn("Audio no disponible", err);
+    }
+}
+
+function actualizarAudioEstado(nuevoEstado) {
+    if (nuevoEstado === ESTADO.PAUSA) {
+        SONIDOS.fondo.pause();
+        musicaActiva = SONIDOS.pausa;
+        SONIDOS.pausa.currentTime = 0;
+        SONIDOS.pausa.play().catch(() => {});
+        return;
+    }
+
+    if (nuevoEstado === ESTADO.JUEGO && !SONIDOS.fondo.paused) {
+        return;
+    }
+
+    if (nuevoEstado === ESTADO.JUEGO && SONIDOS.fondo.currentTime > 0 && musicaActiva === SONIDOS.pausa) {
+        SONIDOS.pausa.pause();
+        SONIDOS.pausa.currentTime = 0;
+        musicaActiva = SONIDOS.fondo;
+        SONIDOS.fondo.play().catch(() => {});
+        return;
+    }
+
+    detenerMusica();
+
+    if (nuevoEstado === ESTADO.INICIO) {
+        musicaActiva = SONIDOS.menu;
+        SONIDOS.menu.play().catch(() => {});
+    } else if (nuevoEstado === ESTADO.JUEGO) {
+        musicaActiva = SONIDOS.fondo;
+        SONIDOS.fondo.play().catch(() => {});
+    } else if (nuevoEstado === ESTADO.FIN) {
+        musicaActiva = SONIDOS.gameOver;
+        SONIDOS.gameOver.play().catch(() => {});
+    } else if (nuevoEstado === ESTADO.VICTORIA) {
+        musicaActiva = SONIDOS.ganaste;
+        SONIDOS.ganaste.play().catch(() => {});
+    }
+}
+
+// Desbloqueo automatico de audio en la primera interaccion del usuario
+function desbloquearAudio() {
+    if (musicaActiva && musicaActiva.paused) {
+        musicaActiva.play().catch(() => {});
+    }
+    window.removeEventListener("pointerdown", desbloquearAudio);
+    window.removeEventListener("keydown", desbloquearAudio);
+}
+
+window.addEventListener("pointerdown", desbloquearAudio);
+window.addEventListener("keydown", desbloquearAudio);
 
 let audioCtx = null;
 
@@ -1573,7 +1550,7 @@ function actualizarJugador(dt) {
     let dx = 0;
     let dz = 0;
 
-    // CONTROLES ORIGINALES
+    // CONTROLES EXACTAMENTE COMO TU FOTOGRAFIA
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
     if (teclas["a"] || teclas["arrowright"]) dx++;
@@ -1596,21 +1573,16 @@ function actualizarJugador(dt) {
         const paso =
             Math.sin(relojMundo * 12) * 0.4;
 
-        // Animar solo personaje provisional
-        if (!modeloAstro) {
-            piernaI.rotation.x = paso;
-            piernaD.rotation.x = -paso;
-            brazoI.rotation.x = -paso;
-            brazoD.rotation.x = paso;
-        }
+        piernaI.rotation.x = paso;
+        piernaD.rotation.x = -paso;
+        brazoI.rotation.x = -paso;
+        brazoD.rotation.x = paso;
 
     } else {
-        if (!modeloAstro) {
-            piernaI.rotation.x = 0;
-            piernaD.rotation.x = 0;
-            brazoI.rotation.x = 0;
-            brazoD.rotation.x = 0;
-        }
+        piernaI.rotation.x = 0;
+        piernaD.rotation.x = 0;
+        brazoI.rotation.x = 0;
+        brazoD.rotation.x = 0;
     }
 
     if (
@@ -1929,12 +1901,6 @@ function animar() {
 
         } else {
             actualizarJugador(dt);
-
-            // Animacion del personaje GLB
-            if (mezcladorAstro) {
-                mezcladorAstro.update(dt);
-            }
-
             actualizarMoviles(dt);
             comprobarColisiones(dt);
             actualizarNaves(dt);
@@ -1955,6 +1921,7 @@ function animar() {
 
 construirTramo(TRAMOS[0]);
 actualizarHUD();
+actualizarAudioEstado(ESTADO.INICIO);
 animar();
 
 // =====================================================
