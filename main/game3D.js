@@ -796,6 +796,24 @@ loaderPersonaje.load(
         // Incorporar nuevo personaje
         astro.add(modelo);
 
+// PRUEBA VISUAL DEL PERSONAJE GLB
+modelo.visible = true;
+
+// Material temporal para comprobar la geometría
+modelo.traverse((obj) => {
+    if (obj.isMesh) {
+        obj.visible = true;
+
+        obj.material = new THREE.MeshNormalMaterial({
+            side: THREE.DoubleSide
+        });
+    }
+});
+
+console.log("Posición del modelo:", modelo.position);
+console.log("Escala del modelo:", modelo.scale);
+
+
         // Ocultar personaje provisional
         astroProvisional.forEach(pieza => {
             pieza.visible = false;
