@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 
@@ -579,6 +580,21 @@ function decorarTramo(grupo, tramo) {
 
         for (let z = inicio; z <= fin; z += 3) {
             for (const x of [-8.3, 8.3]) {
+
+                // Farola GLB (si cargo); si no, la de cilindro y esfera
+                if (modeloFarola) {
+                    const farola = modeloFarola.clone(true);
+
+                    farola.position.set(x, 0, z);
+
+                    // El brazo de la farola mira hacia el centro de la calle
+                    farola.rotation.y =
+                        ROTACION_FAROLA + (x > 0 ? Math.PI : 0);
+
+                    grupo.add(farola);
+                    continue;
+                }
+
                 grupo.add(
                     cilindro(
                         0.08, 0.12, 2.5,
@@ -831,6 +847,47 @@ function normalizarModelo(modelo, largoDeseado) {
     const pivote = new THREE.Group();
     pivote.add(modelo);
     return pivote;
+}
+
+// --- Farola GLB ---------------------------------------------------
+const RUTA_FAROLA = "models/street_lamp.glb";
+const ALTO_FAROLA = 3.2;      // altura de la farola en el juego
+const ROTACION_FAROLA = 0;    // si el brazo/luz mira hacia afuera: Math.PI; de lado: Math.PI / 2
+
+let modeloFarola = null;
+
+async function cargarFarola() {
+    try {
+        const gltf = await new GLTFLoader().loadAsync(RUTA_FAROLA);
+        const modelo = gltf.scene;
+
+        const caja3 = new THREE.Box3().setFromObject(modelo);
+        const tam = caja3.getSize(new THREE.Vector3());
+        const centro = caja3.getCenter(new THREE.Vector3());
+
+        const escala = ALTO_FAROLA / tam.y;
+
+        modelo.scale.setScalar(escala);
+        modelo.position.set(
+            -centro.x * escala,
+            -caja3.min.y * escala,
+            -centro.z * escala
+        );
+
+        modelo.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+            }
+        });
+
+        const pivote = new THREE.Group();
+        pivote.add(modelo);
+        modeloFarola = pivote;
+
+    } catch (err) {
+        console.warn("No se pudo cargar " + RUTA_FAROLA, err);
+    }
 }
 
 async function cargarCarros() {
@@ -2127,7 +2184,7 @@ function animar() {
 // =====================================================
 
 // Primero se cargan los carros GLB y luego se arma el mapa
-cargarCarros().finally(() => {
+Promise.all([cargarCarros(), cargarFarola()]).finally(() => {
     limpiarProgreso();
     actualizarHUD();
 });
