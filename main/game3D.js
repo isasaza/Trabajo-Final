@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { GLTFLoader } from 
+"three/addons/loaders/GLTFLoader.js";
 
 // =====================================================
 // 01. CONFIGURACION GENERAL
