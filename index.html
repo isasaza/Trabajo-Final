@@ -10,14 +10,14 @@
     <link rel="stylesheet" href="./CSS/style.css">
 
     <script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
-  }
-}
-</script>
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"
+        }
+    }
+    </script>
 </head>
+
 <body>
 
     <div id="game-container"></div>
@@ -54,7 +54,9 @@
                 <p>P / ESC: Pausar</p>
             </div>
 
-            <button id="btnJugar">COMENZAR MISION</button>
+            <button id="btnJugar">
+                COMENZAR MISION
+            </button>
         </div>
     </section>
 
@@ -62,11 +64,16 @@
         <div class="panel">
             <h1>JUEGO EN PAUSA</h1>
             <p>Presiona continuar para regresar.</p>
-            <button id="btnContinuar">CONTINUAR</button>
+            <button id="btnContinuar">
+                CONTINUAR
+            </button>
         </div>
     </section>
 
-    <script type="module" src="./main/game3D.js"></script>
+    <script
+        type="module"
+        src="./main/game3D.js">
+    </script>
 
 </body>
 </html>
