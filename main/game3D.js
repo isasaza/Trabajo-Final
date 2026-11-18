@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 
 // =====================================================
 // 01. CONFIGURACION GENERAL
@@ -748,10 +750,134 @@ escena.add(bolt);
 // 13. VEHICULOS
 // =====================================================
 
+// --- Karts (OBJ + MTL + PNG) --------------------------------------
+// Estructura: models/<carpeta>/Full Car/<archivo>.obj
+// IMPORTANTE: las rutas deben ser IGUALES al nombre real (mayusculas incluidas).
+// Si el archivo se llama distinto a la carpeta con "_", ponlo como segundo valor.
+function rutaKart(carpeta, archivo = carpeta.replace(/ /g, "_")) {
+    return `models/${carpeta}/Full Car/${archivo}.obj`;
+}
+
+const RUTAS_CARROS = [
+    rutaKart("Black-Gold Kart"),
+    rutaKart("Black Gray Kart"),
+    rutaKart("Marron Kart"),
+    rutaKart("Green_Reptile"),
+    rutaKart("Multi-Red Kart"),
+    rutaKart("Midnight-Black Kart"),
+    rutaKart("Orange Purple Kart"),
+    rutaKart("Pink Kart"),
+    rutaKart("Red Kart"),
+    rutaKart("Police Kart"),
+    rutaKart("Yellow 6 Wheeler")
+];
+
+const LARGO_CARRO = 2.6;      // largo en el juego (la colision usa ~2.8)
+const ROTACION_EXTRA = 0;     // si salen de lado o de reversa: Math.PI, Math.PI / 2, -Math.PI / 2
+const ROTACION_X = 0;         // si salen acostados o boca abajo: -Math.PI / 2 o Math.PI / 2
+
+const modelosCarro = [];
+
+async function cargarModeloOBJ(ruta) {
+    const corte = ruta.lastIndexOf("/") + 1;
+    const dir = encodeURI(ruta.substring(0, corte));
+    const nombre = ruta.substring(corte, ruta.lastIndexOf("."));
+
+    const mtlLoader = new MTLLoader();
+    mtlLoader.setPath(dir);
+
+    const materiales = await mtlLoader.loadAsync(nombre + ".mtl");
+    materiales.preload();
+
+    // Estilo voxel: texturas sin suavizar para que los colores se vean nitidos
+    for (const m of Object.values(materiales.materials)) {
+        if (m.map) {
+            m.map.magFilter = THREE.NearestFilter;
+            m.map.minFilter = THREE.NearestFilter;
+            m.map.colorSpace = THREE.SRGBColorSpace;
+            m.map.needsUpdate = true;
+        }
+    }
+
+    const objLoader = new OBJLoader();
+    objLoader.setPath(dir);
+    objLoader.setMaterials(materiales);
+
+    return objLoader.loadAsync(nombre + ".obj");
+}
+
+function normalizarModelo(modelo, largoDeseado) {
+    modelo.rotation.x = ROTACION_X;
+    const caja3 = new THREE.Box3().setFromObject(modelo);
+    const tam = caja3.getSize(new THREE.Vector3());
+    const centro = caja3.getCenter(new THREE.Vector3());
+
+    const escala = largoDeseado / Math.max(tam.x, tam.z);
+
+    modelo.scale.setScalar(escala);
+    modelo.position.set(
+        -centro.x * escala,
+        -caja3.min.y * escala,
+        -centro.z * escala
+    );
+
+    modelo.traverse(o => {
+        if (o.isMesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+        }
+    });
+
+    const pivote = new THREE.Group();
+    pivote.add(modelo);
+    return pivote;
+}
+
+async function cargarCarros() {
+    const resultados = await Promise.allSettled(
+        RUTAS_CARROS.map(ruta => cargarModeloOBJ(ruta))
+    );
+
+    resultados.forEach((r, i) => {
+        if (r.status === "fulfilled") {
+            modelosCarro.push(
+                normalizarModelo(r.value, LARGO_CARRO)
+            );
+        } else {
+            console.warn(
+                "No se pudo cargar " + RUTAS_CARROS[i],
+                r.reason
+            );
+        }
+    });
+}
+
 function crearVehiculo(
     grupoTramo, z, x, velocidad, indice
 ) {
     const grupo = new THREE.Group();
+
+    // Si hay modelos GLB cargados, se usan en vez de las cajas
+    if (modelosCarro.length > 0) {
+        const base = modelosCarro[indice % modelosCarro.length];
+        const carro = base.clone(true);
+
+        // Se orienta segun hacia donde avanza (eje X)
+        carro.rotation.y =
+            (velocidad > 0 ? Math.PI / 2 : -Math.PI / 2) +
+            ROTACION_EXTRA;
+
+        grupo.add(carro);
+        grupo.position.set(x, 0, z);
+        grupoTramo.add(grupo);
+
+        vehiculos.push({
+            mesh: grupo,
+            velocidad
+        });
+
+        return;
+    }
 
     const colores = [
         0xff527d,
@@ -1999,6 +2125,12 @@ function animar() {
 // =====================================================
 // 29. INICIALIZACION
 // =====================================================
+
+// Primero se cargan los carros GLB y luego se arma el mapa
+cargarCarros().finally(() => {
+    limpiarProgreso();
+    actualizarHUD();
+});
 
 construirTramo(TRAMOS[0]);
 actualizarHUD();
