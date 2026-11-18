@@ -1367,13 +1367,13 @@ UI.continuar.addEventListener("click", () => {
 // =====================================================
 
 const SONIDOS = {
-    muerte: new Audio("sonidos/death sound.mp3"),
-    gameOver: new Audio("sonidos/Game over sound.mp3"),
-    ganaste: new Audio("sonidos/Ganaste musica.mp3"),
-    salto: new Audio("sonidos/Jump sound.mp3"),
-    menu: new Audio("sonidos/menu musica.mp3"),
-    fondo: new Audio("sonidos/musica de fondo.mp3"),
-    pausa: new Audio("sonidos/musica de pausa.mp3")
+    muerte: new Audio("sonidos/death.mp3"),
+    gameOver: new Audio("sonidos/gameover.mp3"),
+    ganaste: new Audio("sonidos/ganaste.mp3"),
+    salto: new Audio("sonidos/jump.mp3"),
+    menu: new Audio("sonidos/menu.mp3"),
+    fondo: new Audio("sonidos/fondo.mp3"),
+    pausa: new Audio("sonidos/pausa.mp3")
 };
 
 SONIDOS.menu.loop = true;
