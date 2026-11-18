@@ -1015,25 +1015,85 @@ function crearCarriles(grupo, zona, tramo) {
 // 14. TRONCOS
 // =====================================================
 
+// Textura de madera (carpeta img). Si no carga, se ve el color base.
+const texturaTronco = new THREE.TextureLoader().load(
+    "img/texturatronco.jpg"
+);
+
+texturaTronco.colorSpace = THREE.SRGBColorSpace;
+texturaTronco.wrapS = THREE.RepeatWrapping;
+texturaTronco.wrapT = THREE.RepeatWrapping;
+texturaTronco.repeat.set(1, 1);   // prueba (2, 1) o (1, 2) si la veta se ve estirada
+
+const MAT_TRONCO = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: texturaTronco,
+    roughness: 0.9,
+    metalness: 0,
+    // un poco de brillo propio para que no se vea apagado en la noche
+    emissive: 0xffffff,
+    emissiveMap: texturaTronco,
+    emissiveIntensity: 0.3
+});
+
+const RADIO_TRONCO = 0.42;   // diametro ~0.85, igual que el ancho anterior
+const LARGO_TRONCO = 3.6;    // la colision usa este largo (no cambiar)
+
+// Altura de la parte de arriba del tronco (donde se para el personaje)
+const ALTURA_TRONCO = 0.03 + RADIO_TRONCO;
+
+// Tronco que esta debajo de la posicion (x, z), o null
+function buscarTronco(x, z) {
+    for (const t of troncos) {
+        if (
+            Math.abs(x - t.mesh.position.x) < LARGO_TRONCO / 2 - 0.15 &&
+            Math.abs(z - t.mesh.position.z) < 0.55
+        ) {
+            return t;
+        }
+    }
+
+    return null;
+}
+
+// Altura del piso en ese punto: 0 normalmente, o la del tronco en el rio
+function alturaSuelo(x, z) {
+    if (filasAgua.has(Math.round(z)) && buscarTronco(x, z)) {
+        return ALTURA_TRONCO;
+    }
+
+    return 0;
+}
+
 function crearTronco(grupoTramo, z, x, velocidad) {
     const grupo = new THREE.Group();
 
-    grupo.add(
-        caja(
-            3.6, 0.5, 0.85,
-            M.madera,
-            0, 0.2, 0
-        )
+    // Tronco cilindrico acostado a lo largo del eje X
+    const cuerpo = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            RADIO_TRONCO, RADIO_TRONCO,
+            LARGO_TRONCO, 24
+        ),
+        MAT_TRONCO
     );
 
+    cuerpo.rotation.z = Math.PI / 2;
+    cuerpo.position.y = 0.03;   // la parte de arriba queda a la altura de antes
+    cuerpo.castShadow = true;
+    cuerpo.receiveShadow = true;
+
+    grupo.add(cuerpo);
+
+    // Aros neon en los extremos
     for (const extremo of [-1, 1]) {
-        grupo.add(
-            caja(
-                0.1, 0.54, 0.9,
-                M.cian,
-                extremo * 1.7, 0.2, 0
-            )
+        const aro = cilindro(
+            RADIO_TRONCO + 0.03, RADIO_TRONCO + 0.03, 0.1,
+            M.cian,
+            extremo * 1.7, 0.03, 0
         );
+
+        aro.rotation.z = Math.PI / 2;
+        grupo.add(aro);
     }
 
     grupo.position.set(x, 0, z);
@@ -1517,7 +1577,10 @@ window.addEventListener("keydown", e => {
         k === " " &&
         !e.repeat &&
         estado === ESTADO.JUEGO &&
-        astro.position.y <= 0.01
+        astro.position.y <= alturaSuelo(
+            astro.position.x,
+            astro.position.z
+        ) + 0.01
     ) {
         velocidadVertical = CONFIG.salto;
         reproducirSfx(SONIDOS.salto);
@@ -1823,16 +1886,30 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
-    // Gravedad y salto
+    // Gravedad y salto (el suelo sube si hay un tronco debajo)
+    const suelo = alturaSuelo(
+        astro.position.x,
+        astro.position.z
+    );
+
+    // Si camina hacia un tronco, se sube encima
+    if (astro.position.y < suelo) {
+        astro.position.y = suelo;
+
+        if (velocidadVertical < 0) {
+            velocidadVertical = 0;
+        }
+    }
+
     if (
-        astro.position.y > 0 ||
+        astro.position.y > suelo ||
         velocidadVertical > 0
     ) {
         velocidadVertical -= CONFIG.gravedad * dt;
         astro.position.y += velocidadVertical * dt;
 
-        if (astro.position.y < 0) {
-            astro.position.y = 0;
+        if (astro.position.y < suelo) {
+            astro.position.y = suelo;
             velocidadVertical = 0;
         }
     }
@@ -1960,26 +2037,12 @@ function comprobarColisiones(dt) {
     // -----------------------------------------------
 
     if (filasAgua.has(Math.round(z))) {
-        let soporte = null;
-
-        for (const t of troncos) {
-            if (
-                Math.abs(
-                    x - t.mesh.position.x
-                ) < 1.65 &&
-                Math.abs(
-                    z - t.mesh.position.z
-                ) < 0.55
-            ) {
-                soporte = t;
-                break;
-            }
-        }
+        const soporte = buscarTronco(x, z);
 
         // Astro se desplaza junto al tronco
         if (
             soporte &&
-            astro.position.y < 0.5
+            astro.position.y < ALTURA_TRONCO + 0.15
         ) {
             astro.position.x +=
                 soporte.velocidad * dt;
