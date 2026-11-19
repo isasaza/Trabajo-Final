@@ -890,6 +890,109 @@ async function cargarFarola() {
     }
 }
 
+// --- Personaje GLB (Astro) ----------------------------------------
+const RUTA_PERSONAJE = "models/personaje.glb";
+const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
+const ROTACION_ASTRO = 0;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
+
+let mixerAstro = null;
+let accionCaminar = null;
+let accionReposo = null;
+let astroMoviendo = null;
+
+async function cargarPersonaje() {
+    try {
+        const gltf = await new GLTFLoader().loadAsync(RUTA_PERSONAJE);
+        const modelo = gltf.scene;
+
+        const caja3 = new THREE.Box3().setFromObject(modelo);
+        const tam = caja3.getSize(new THREE.Vector3());
+        const centro = caja3.getCenter(new THREE.Vector3());
+
+        const escala = ALTO_ASTRO / tam.y;
+
+        modelo.scale.setScalar(escala);
+        modelo.position.set(
+            -centro.x * escala,
+            -caja3.min.y * escala,
+            -centro.z * escala
+        );
+
+        modelo.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+                o.frustumCulled = false;
+            }
+        });
+
+        const pivote = new THREE.Group();
+        pivote.rotation.y = ROTACION_ASTRO;
+        pivote.add(modelo);
+
+        // Se esconden las piezas de cajas y se usa el modelo
+        for (const hijo of astro.children) {
+            hijo.visible = false;
+        }
+
+        astro.add(pivote);
+
+        // Animaciones del GLB (si trae)
+        const clips = gltf.animations;
+
+        console.log(
+            "Animaciones del personaje:",
+            clips.map(c => c.name)
+        );
+
+        if (clips.length > 0) {
+            mixerAstro = new THREE.AnimationMixer(modelo);
+
+            const buscar = patron =>
+                clips.find(c => patron.test(c.name));
+
+            const clipCaminar =
+                buscar(/walk|run|camin|corr/i) || clips[0];
+
+            const clipReposo = buscar(/idle|rest|stand|repos|quiet/i);
+
+            accionCaminar = mixerAstro.clipAction(clipCaminar);
+
+            if (clipReposo && clipReposo !== clipCaminar) {
+                accionReposo = mixerAstro.clipAction(clipReposo);
+            }
+
+            astroMoviendo = null;
+            actualizarAnimacionAstro(false);
+        }
+
+    } catch (err) {
+        console.warn("No se pudo cargar " + RUTA_PERSONAJE, err);
+    }
+}
+
+function actualizarAnimacionAstro(moviendo) {
+    if (!mixerAstro || moviendo === astroMoviendo) return;
+
+    astroMoviendo = moviendo;
+
+    if (moviendo) {
+        accionCaminar.paused = false;
+        accionCaminar.reset().fadeIn(0.15).play();
+
+        if (accionReposo) accionReposo.fadeOut(0.15);
+
+    } else if (accionReposo) {
+        accionReposo.reset().fadeIn(0.15).play();
+        accionCaminar.fadeOut(0.15);
+
+    } else {
+        // Sin animacion de reposo: se queda congelado en el cuadro actual
+        accionCaminar.play();
+        accionCaminar.paused = true;
+    }
+}
+
 async function cargarCarros() {
     const resultados = await Promise.allSettled(
         RUTAS_CARROS.map(ruta => cargarModeloOBJ(ruta))
@@ -1126,33 +1229,42 @@ function crearRio(grupo, zona, tramo) {
 // 15. SIERRAS
 // =====================================================
 
+// Textura de la sierra (carpeta img). Se pega en las dos caras del disco.
+const texturaSierra = new THREE.TextureLoader().load(
+    "img/cortadora.jpg"
+);
+
+texturaSierra.colorSpace = THREE.SRGBColorSpace;
+texturaSierra.anisotropy = 4;
+
+const MAT_CARA_SIERRA = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: texturaSierra,
+    roughness: 0.5,
+    metalness: 0.3,
+    // brillo propio para que se vea en la noche
+    emissive: 0xffffff,
+    emissiveMap: texturaSierra,
+    emissiveIntensity: 0.35
+});
+
+const RADIO_SIERRA = 0.85;   // la colision usa ~0.9 (no cambiar)
+
 function crearSierras(grupo, zona) {
     for (let z = zona[1]; z <= zona[2]; z += 2) {
         const s = new THREE.Group();
 
-        const disco = cilindro(
-            0.7, 0.7, 0.18,
-            M.sierra,
-            0, 0, 0, 12
+        // Disco con la imagen en las dos caras (lado: metal; caras: textura)
+        const disco = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                RADIO_SIERRA, RADIO_SIERRA, 0.18, 48
+            ),
+            [M.sierra, MAT_CARA_SIERRA, MAT_CARA_SIERRA]
         );
 
         disco.rotation.x = Math.PI / 2;
+        disco.castShadow = true;
         s.add(disco);
-
-        for (let i = 0; i < 12; i++) {
-            const a = i * Math.PI / 6;
-
-            const d = caja(
-                0.23, 0.23, 0.2,
-                M.sierra,
-                Math.cos(a) * 0.75,
-                Math.sin(a) * 0.75,
-                0
-            );
-
-            d.rotation.z = a;
-            s.add(d);
-        }
 
         s.position.set(
             z % 4 === 0 ? -3 : 3,
@@ -1199,33 +1311,108 @@ function crearGema(grupo, numero, z) {
     });
 }
 
+// Resplandor: un circulo difuso (centro claro, borde transparente)
+function crearTexturaResplandor() {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 128;
+
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.25, "rgba(255,255,255,0.55)");
+    grad.addColorStop(0.6, "rgba(255,255,255,0.15)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+
+    return new THREE.CanvasTexture(c);
+}
+
+const texturaResplandor = crearTexturaResplandor();
+
+const ALTO_TROFEO = 2.2;       // altura de la imagen del trofeo en el juego
+const ALTURA_TROFEO = 1.7;     // a que altura flota
+const COLOR_RESPLANDOR = 0xffc75d;
+
+let trofeoSprite = null;
+let trofeoHalo = null;
+
 function crearTrofeo(grupo, z) {
     const t = new THREE.Group();
 
+    // Base de la plataforma
     t.add(caja(2.7, 0.25, 2.3, M.metal));
 
-    t.add(
-        cilindro(
-            0.18, 0.3, 0.9,
-            M.oro,
-            0, 0.7, 0
-        )
+    // Imagen del trofeo (siempre mira a la camara)
+    const imagen = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+            map: null,
+            transparent: true,
+            fog: false,
+            toneMapped: false
+        })
     );
 
-    t.add(
-        cilindro(
-            0.8, 0.4, 0.8,
-            M.oro,
-            0, 1.5, 0
-        )
+    imagen.scale.set(ALTO_TROFEO, ALTO_TROFEO, 1);
+    imagen.position.set(0, ALTURA_TROFEO, 0);
+
+    new THREE.TextureLoader().load("img/trofeo.png", tex => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+
+        imagen.material.map = tex;
+        imagen.material.needsUpdate = true;
+
+        // Respeta la proporcion de la imagen
+        const proporcion = tex.image.width / tex.image.height;
+        imagen.scale.set(ALTO_TROFEO * proporcion, ALTO_TROFEO, 1);
+    });
+
+    // Resplandor detras del trofeo
+    const halo = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+            map: texturaResplandor,
+            color: COLOR_RESPLANDOR,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            fog: false,
+            toneMapped: false
+        })
     );
 
-    t.add(anillo(0.8, M.cian, 1.8));
+    halo.scale.set(4.5, 4.5, 1);
+    halo.position.set(0, ALTURA_TROFEO, -0.05);
+
+    // Resplandor sobre la plataforma
+    const suelo = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 3.4),
+        new THREE.MeshBasicMaterial({
+            map: texturaResplandor,
+            color: COLOR_RESPLANDOR,
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            fog: false,
+            toneMapped: false
+        })
+    );
+
+    suelo.rotation.x = -Math.PI / 2;
+    suelo.position.y = 0.16;
+
+    t.add(halo, imagen, suelo);
 
     t.position.set(0, 0, z);
     grupo.add(t);
 
     trofeo = t;
+    trofeoSprite = imagen;
+    trofeoHalo = halo;
 }
 
 // =====================================================
@@ -1429,6 +1616,8 @@ function limpiarProgreso() {
     gemas.length = 0;
 
     trofeo = null;
+    trofeoSprite = null;
+    trofeoHalo = null;
 
     for (const p of particulas) {
         escena.remove(p.mesh);
@@ -1886,6 +2075,13 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
+    // Animacion del modelo GLB (si tiene)
+    actualizarAnimacionAstro(longitud > 0);
+
+    if (mixerAstro) {
+        mixerAstro.update(dt);
+    }
+
     // Gravedad y salto (el suelo sube si hay un tronco debajo)
     const suelo = alturaSuelo(
         astro.position.x,
@@ -2197,8 +2393,18 @@ function actualizarDecoracion(dt) {
         }
     }
 
-    if (trofeo) {
-        trofeo.rotation.y += dt * 0.25;
+    // El trofeo flota y su resplandor late
+    if (trofeo && trofeoSprite && trofeoHalo) {
+        const pulso = Math.sin(relojMundo * 2.5);
+
+        trofeoSprite.position.y =
+            ALTURA_TROFEO + Math.sin(relojMundo * 2) * 0.12;
+
+        trofeoHalo.position.y = trofeoSprite.position.y;
+
+        const tam = 4.5 + pulso * 0.5;
+        trofeoHalo.scale.set(tam, tam, 1);
+        trofeoHalo.material.opacity = 0.75 + pulso * 0.2;
     }
 }
 
@@ -2247,7 +2453,11 @@ function animar() {
 // =====================================================
 
 // Primero se cargan los carros GLB y luego se arma el mapa
-Promise.all([cargarCarros(), cargarFarola()]).finally(() => {
+Promise.all([
+    cargarCarros(),
+    cargarFarola(),
+    cargarPersonaje()
+]).finally(() => {
     limpiarProgreso();
     actualizarHUD();
 });
