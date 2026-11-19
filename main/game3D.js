@@ -87,7 +87,7 @@ let checkpointZ = 0;
 let invulnerable = 0;
 let velocidadVertical = 0;
 let relojMundo = 0;
-let boltActivo = false;        // Tab activa/desactiva a Bolt
+let boltActivo = false;        // Tab lo activa/desactiva; se apaga al morir o reiniciar
 let dobleSaltoUsado = false;   // 1 doble salto por cada salto desde el suelo
 let trofeo = null;
 
@@ -1971,6 +1971,7 @@ function reaparecer() {
     astro.rotation.y = 0;
     velocidadVertical = 0;
     dobleSaltoUsado = false;
+    boltActivo = false;   // al morir o reiniciar se pierde el doble salto
     invulnerable = CONFIG.invulnerabilidad;
 }
 
@@ -2137,6 +2138,7 @@ window.addEventListener("keydown", e => {
     }
 
     if (k === "tab") {
+        // Un clic activa el doble salto; otro clic lo quita
         if (!e.repeat) {
             boltActivo = !boltActivo;
             actualizarHUD();
