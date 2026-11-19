@@ -26,48 +26,152 @@ const TRAMOS = [
         inicio: 0,
         fin: 23,
         carros: 2.5,
-        troncos: 1.4,
-        zonas: [
-            ["suelo", 0, 3],
-            ["carretera", 4, 8],
-            ["agua", 9, 13],
-            ["suelo", 14, 15],
-            ["carretera", 16, 20],
-            ["checkpoint", 21, 23]
-        ]
+        troncos: 1.4
     },
     {
         id: 1,
         inicio: 24,
         fin: 47,
         carros: 4.2,
-        troncos: 1.9,
-        zonas: [
-            ["suelo", 24, 26],
-            ["carretera", 27, 31],
-            ["agua", 32, 36],
-            ["suelo", 37, 39],
-            ["carretera", 40, 44],
-            ["checkpoint", 45, 47]
-        ]
+        troncos: 1.9
     },
     {
         id: 2,
         inicio: 48,
         fin: 73,
         carros: 6,
-        troncos: 2.5,
-        zonas: [
-            ["suelo", 48, 50],
-            ["carretera", 51, 55],
-            ["sierras", 56, 59],
-            ["agua", 60, 64],
-            ["carretera", 65, 69],
-            ["sierras", 70, 71],
-            ["trofeo", 72, 73]
-        ]
+        troncos: 2.5
     }
 ];
+
+// -----------------------------------------------------
+// TILEMAP DEL NIVEL (mapa de texto)
+// -----------------------------------------------------
+// Cada linea del mapa es una fila del nivel (la linea 0 es z = 0 y se avanza
+// hacia adelante). Cada fila tiene 3 columnas: izquierda | centro | derecha.
+// Las columnas laterales solo existen donde el carril/rio se abre hacia
+// los costados; el "." significa "sin casilla".
+//
+// LEYENDA:
+//   S = suelo seguro (pasto)
+//   C = carretera (aparecen vehiculos)
+//   A = agua (hay que cruzar sobre plataformas)
+//   K = checkpoint (zona segura que guarda el avance)
+//   X = sierras giratorias (obstaculo)
+//   T = trofeo (meta final)
+//   . = vacio (sin casilla)
+const LEYENDA_TILES = {
+    S: "suelo",
+    C: "carretera",
+    A: "agua",
+    K: "checkpoint",
+    X: "sierras",
+    T: "trofeo"
+};
+
+const MAPA = [
+    // --- Sector 1 (z 0-23) ---
+    ".S.",   // z=0 suelo
+    ".S.",   // z=1 suelo
+    ".S.",   // z=2 suelo
+    ".S.",   // z=3 suelo
+    "CCC",   // z=4 carretera
+    "CCC",   // z=5 carretera
+    "CCC",   // z=6 carretera
+    "CCC",   // z=7 carretera
+    "CCC",   // z=8 carretera
+    "AAA",   // z=9 agua
+    "AAA",   // z=10 agua
+    "AAA",   // z=11 agua
+    "AAA",   // z=12 agua
+    "AAA",   // z=13 agua
+    ".S.",   // z=14 suelo
+    ".S.",   // z=15 suelo
+    "CCC",   // z=16 carretera
+    "CCC",   // z=17 carretera
+    "CCC",   // z=18 carretera
+    "CCC",   // z=19 carretera
+    "CCC",   // z=20 carretera
+    ".K.",   // z=21 checkpoint
+    ".K.",   // z=22 checkpoint
+    ".K.",   // z=23 checkpoint
+    // --- Sector 2 (z 24-47) ---
+    ".S.",   // z=24 suelo
+    ".S.",   // z=25 suelo
+    ".S.",   // z=26 suelo
+    "CCC",   // z=27 carretera
+    "CCC",   // z=28 carretera
+    "CCC",   // z=29 carretera
+    "CCC",   // z=30 carretera
+    "CCC",   // z=31 carretera
+    "AAA",   // z=32 agua
+    "AAA",   // z=33 agua
+    "AAA",   // z=34 agua
+    "AAA",   // z=35 agua
+    "AAA",   // z=36 agua
+    ".S.",   // z=37 suelo
+    ".S.",   // z=38 suelo
+    ".S.",   // z=39 suelo
+    "CCC",   // z=40 carretera
+    "CCC",   // z=41 carretera
+    "CCC",   // z=42 carretera
+    "CCC",   // z=43 carretera
+    "CCC",   // z=44 carretera
+    ".K.",   // z=45 checkpoint
+    ".K.",   // z=46 checkpoint
+    ".K.",   // z=47 checkpoint
+    // --- Sector 3 (z 48-73) ---
+    ".S.",   // z=48 suelo
+    ".S.",   // z=49 suelo
+    ".S.",   // z=50 suelo
+    "CCC",   // z=51 carretera
+    "CCC",   // z=52 carretera
+    "CCC",   // z=53 carretera
+    "CCC",   // z=54 carretera
+    "CCC",   // z=55 carretera
+    ".X.",   // z=56 sierras
+    ".X.",   // z=57 sierras
+    ".X.",   // z=58 sierras
+    ".X.",   // z=59 sierras
+    "AAA",   // z=60 agua
+    "AAA",   // z=61 agua
+    "AAA",   // z=62 agua
+    "AAA",   // z=63 agua
+    "AAA",   // z=64 agua
+    "CCC",   // z=65 carretera
+    "CCC",   // z=66 carretera
+    "CCC",   // z=67 carretera
+    "CCC",   // z=68 carretera
+    "CCC",   // z=69 carretera
+    ".X.",   // z=70 sierras
+    ".X.",   // z=71 sierras
+    ".T.",   // z=72 trofeo
+    ".T.",   // z=73 trofeo
+];
+
+// Agrupa filas consecutivas del mismo tipo (columna central) en "zonas"
+// [tipo, filaInicial, filaFinal]; asi los carriles, el rio y las sierras
+// se crean una sola vez por zona, igual que antes.
+function zonasDeTramo(tramo) {
+    const zonas = [];
+
+    for (let z = tramo.inicio; z <= tramo.fin; z++) {
+        const tipo = LEYENDA_TILES[MAPA[z][1]];
+        const ultima = zonas[zonas.length - 1];
+
+        if (ultima && ultima[0] === tipo) {
+            ultima[2] = z;
+        } else {
+            zonas.push([tipo, z, z]);
+        }
+    }
+
+    return zonas;
+}
+
+for (const tramo of TRAMOS) {
+    tramo.zonas = zonasDeTramo(tramo);
+}
 
 const ESTADO = {
     INICIO: "inicio",
@@ -837,10 +941,10 @@ function rutaKart(carpeta, archivo = carpeta.replace(/ /g, "_")) {
 const RUTAS_CARROS = [
     rutaKart("Black-Gold Kart"),
     rutaKart("Black Gray Kart"),
-    rutaKart("Marron Kart"),
+    // rutaKart("Marron Kart"),            // desactivado: su .mtl da 404 en GitHub Pages
     rutaKart("Green_Reptile"),
-    rutaKart("Multi-Red Kart"),
-    rutaKart("Midnight-Black Kart"),
+    // rutaKart("Multi-Red Kart"),         // desactivado: su .mtl da error en GitHub Pages
+    // rutaKart("Midnight-Black Kart"),    // desactivado: su .mtl da 404 en GitHub Pages
     rutaKart("Orange Purple Kart"),
     rutaKart("Pink Kart"),
     rutaKart("Red Kart"),
@@ -1815,63 +1919,69 @@ function construirTramo(tramo) {
     escena.add(grupo);
     gruposTramo.set(tramo.id, grupo);
 
-    for (const zona of tramo.zonas) {
-        const [tipo, inicio, fin] = zona;
+    // Recorre el tilemap fila por fila y columna por columna
+    // (izquierda, centro, derecha) para crear el terreno
+    for (let z = tramo.inicio; z <= tramo.fin; z++) {
+        const fila = MAPA[z];
 
-        const material =
-            tipo === "carretera" ? M.carretera :
-            tipo === "agua" ? M.agua :
-            tipo === "checkpoint" ? M.plataforma :
-            tipo === "sierras" ? M.metal :
-            tipo === "trofeo" ? M.plataforma :
-            M.pasto;
+        for (let col = 0; col < fila.length; col++) {
+            const tipo = LEYENDA_TILES[fila[col]];
 
-        for (let z = inicio; z <= fin; z++) {
+            // "." = sin casilla
+            if (!tipo) continue;
 
-            // Terreno central
-            grupo.add(
-                caja(
-                    19, 0.2, 1,
-                    material,
-                    0, -0.15, z
-                )
-            );
+            const material =
+                tipo === "carretera" ? M.carretera :
+                tipo === "agua" ? M.agua :
+                tipo === "checkpoint" ? M.plataforma :
+                tipo === "sierras" ? M.metal :
+                tipo === "trofeo" ? M.plataforma :
+                M.pasto;
 
-            if (tipo === "agua") {
-                filasAgua.add(z);
-            }
+            if (col === 1) {
+                // Terreno central
+                grupo.add(
+                    caja(
+                        19, 0.2, 1,
+                        material,
+                        0, -0.15, z
+                    )
+                );
 
-            // Carreteras y rios abiertos lateralmente
-            if (
-                tipo === "carretera" ||
-                tipo === "agua"
-            ) {
-                for (const lado of [-1, 1]) {
-                    grupo.add(
-                        caja(
-                            15, 0.2, 1,
-                            material,
-                            lado * 17,
-                            -0.15,
-                            z
-                        )
-                    );
+                if (tipo === "agua") {
+                    filasAgua.add(z);
                 }
-            }
 
-            // Iluminacion de checkpoints
-            if (tipo === "checkpoint") {
-                for (const x of [-6, 6]) {
-                    grupo.add(
-                        caja(
-                            0.16, 0.05, 1,
-                            M.cian,
-                            x, -0.02, z
-                        )
-                    );
+                // Iluminacion de checkpoints
+                if (tipo === "checkpoint") {
+                    for (const x of [-6, 6]) {
+                        grupo.add(
+                            caja(
+                                0.16, 0.05, 1,
+                                M.cian,
+                                x, -0.02, z
+                            )
+                        );
+                    }
                 }
+            } else {
+                // Carreteras y rios abiertos lateralmente
+                grupo.add(
+                    caja(
+                        15, 0.2, 1,
+                        material,
+                        (col === 0 ? -1 : 1) * 17,
+                        -0.15,
+                        z
+                    )
+                );
             }
         }
+    }
+
+    // Elementos por zona (vehiculos, troncos, sierras)
+    for (const zona of tramo.zonas) {
+        const tipo = zona[0];
 
         if (tipo === "carretera") {
             crearCarriles(grupo, zona, tramo);
