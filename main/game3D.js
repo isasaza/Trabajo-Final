@@ -2481,7 +2481,7 @@ function actualizarJugador(dt) {
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
     if (teclas["a"] || teclas["arrowleft"]) dx++;
-if (teclas["d"] || teclas["arrowright"]) dx--;
+    if (teclas["d"] || teclas["arrowright"]) dx--;
 
     const longitud = Math.hypot(dx, dz);
 
