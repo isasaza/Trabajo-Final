@@ -2,6 +2,8 @@ GitHub page: https://isasaza.github.io/Trabajo-Final/
 
 GitHub repositorio: https://github.com/isasaza/Trabajo-Final
 
+Video tutorial: https://youtu.be/7ZxMtH55s9I
+
 Integrantes:
 
 -Isabella Marín Narváez - 30000140555
