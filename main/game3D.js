@@ -1532,7 +1532,7 @@ function crearRio(grupo, zona, tramo) {
 
 //sierras
 
-// Textura de la sierra (carpeta img). Se pega en las dos caras del disco.
+// Textura de la sierra 
 const texturaSierra = new THREE.TextureLoader().load(
     "img/cortadora.jpg"
 );
@@ -1545,19 +1545,19 @@ const MAT_CARA_SIERRA = new THREE.MeshStandardMaterial({
     map: texturaSierra,
     roughness: 0.5,
     metalness: 0.3,
-    // brillo propio para que se vea en la noche
+    // brillo 
     emissive: 0xffffff,
     emissiveMap: texturaSierra,
     emissiveIntensity: 0.35
 });
 
-const RADIO_SIERRA = 0.85;   // la colision usa ~0.9 (no cambiar)
+const RADIO_SIERRA = 0.85;  
 
 function crearSierras(grupo, zona) {
     for (let z = zona[1]; z <= zona[2]; z += 2) {
         const s = new THREE.Group();
 
-        // Disco con la imagen en las dos caras (lado: metal; caras: textura)
+        // Disco con la imagen en las dos caras
         const disco = new THREE.Mesh(
             new THREE.CylinderGeometry(
                 RADIO_SIERRA, RADIO_SIERRA, 0.18, 48
@@ -1584,12 +1584,9 @@ function crearSierras(grupo, zona) {
         });
     }
 }
+//gemas y trofeo
 
-// =====================================================
-// 16. GEMAS Y TROFEO
-// =====================================================
-
-// Resplandor: un circulo difuso (centro claro, borde transparente)
+// Resplandor
 function crearTexturaResplandor() {
     const c = document.createElement("canvas");
     c.width = 128;
@@ -1611,16 +1608,14 @@ function crearTexturaResplandor() {
 
 const texturaResplandor = crearTexturaResplandor();
 
-// =====================================================
-// GEMAS (imagen img/gema.jpg con resplandor morado)
-// =====================================================
+//gemas
 
 const ALTO_GEMA = 1.6;            // tamano de la imagen en el juego
 const ALTURA_GEMA = 1.5;          // altura base a la que flota
 const COLOR_GEMA = 0x9c3dff;      // resplandor morado
 
 // Mascara circular suave (blanco = visible, negro = transparente).
-// La imagen es .jpg, asi que se recorta en circulo en vez de verse cuadrada.
+
 function crearMascaraCircular() {
     const c = document.createElement("canvas");
     c.width = 128;
@@ -1641,7 +1636,7 @@ function crearMascaraCircular() {
 
 const mascaraGema = crearMascaraCircular();
 
-// Imagen plana de la gema (carpeta img)
+// Imagen plana de la gema 
 const texturaGema = new THREE.TextureLoader().load(
     "img/gema.jpg",
     tex => {
@@ -1731,7 +1726,7 @@ function crearGema(grupo, numero, z) {
 }
 
 const ALTO_TROFEO = 2.2;       // altura de la imagen del trofeo en el juego
-const ALTURA_TROFEO = 1.7;     // a que altura flota
+const ALTURA_TROFEO = 1.7;     // altura flota
 const COLOR_RESPLANDOR = 0xffc75d;
 
 let trofeoSprite = null;
@@ -1743,7 +1738,7 @@ function crearTrofeo(grupo, z) {
     // Base de la plataforma
     t.add(caja(2.7, 0.25, 2.3, M.metal));
 
-    // Imagen del trofeo (siempre mira a la camara)
+    // Imagen del trofeo 
     const imagen = new THREE.Sprite(
         new THREE.SpriteMaterial({
             map: null,
@@ -1812,9 +1807,7 @@ function crearTrofeo(grupo, z) {
     trofeoHalo = halo;
 }
 
-// =====================================================
-// 17. CONSTRUCCION PROGRESIVA DEL MAPA
-// =====================================================
+// construccion del mapa que dividimos en 3 levels
 
 function construirTramo(tramo) {
     if (tramosCreados.has(tramo.id)) return;
@@ -1904,7 +1897,7 @@ function construirTramo(tramo) {
         }
     }
 
-    // Edificios futuristas del nuevo sector
+    // Edificio
     decorarTramo(grupo, tramo);
 
     if (tramo.id < 2) {
@@ -1918,9 +1911,7 @@ function construirTramo(tramo) {
     }
 }
 
-// =====================================================
-// 18. HUD Y PANTALLAS
-// =====================================================
+//HUD y pantallass
 
 const UI = {
     vidas: document.getElementById("vidas"),
@@ -1937,15 +1928,11 @@ const UI = {
     continuar: document.getElementById("btnContinuar")
 };
 
-// =====================================================
-// 18. HUD Y PANTALLAS (CONTINUACION)
-// =====================================================
-
 function actualizarHUD() {
     UI.vidas.textContent = vidas;
     UI.puntos.textContent = puntos;
 
-    // Tres metas: dos estaciones de energia y el trofeo final
+    // metas ( 2 checkpoints y meta)
     const metasCompletadas =
         gemasRecogidas +
         (estado === ESTADO.VICTORIA ? 1 : 0);
@@ -1954,7 +1941,7 @@ function actualizarHUD() {
 
     UI.tiempo.textContent = Math.ceil(tiempo);
 
-    // El elemento puede no existir en el HTML: no debe romper el juego
+    // El elemento puede no existir en el HTML, no debe romper el juego
     if (UI.bolt) {
         UI.bolt.textContent = boltActivo ? "ACTIVO" : "Apagado";
     }
@@ -1980,9 +1967,7 @@ function cambiarEstado(nuevo) {
     actualizarAudioEstado(estado);
 }
 
-// =====================================================
-// 19. CHECKPOINTS Y REINICIO
-// =====================================================
+// punto de conyrol y reaparicion
 
 function reaparecer() {
     astro.position.set(0, 0, checkpointZ);
@@ -2112,10 +2097,7 @@ function recogerGema(gema) {
     construirTramo(TRAMOS[tramoActual]);
     actualizarHUD();
 }
-
-// =====================================================
-// 20. CONTROLES
-// =====================================================
+//controles 
 
 const OPCIONES_ROTACION = [
     [0, "0"],
@@ -2124,7 +2106,7 @@ const OPCIONES_ROTACION = [
     [-Math.PI / 2, "-Math.PI / 2"]
 ];
 
-let indiceRotacion = 1;   // empieza en Math.PI / 2 (igual que ROTACION_ASTRO)
+let indiceRotacion = 1;   
 
 // Aviso corto en pantalla al calibrar con la tecla R
 const avisoRotacion = document.createElement("div");
@@ -2156,7 +2138,7 @@ window.addEventListener("keydown", e => {
     }
 
     if (k === "tab") {
-        // Un clic activa el doble salto; otro clic lo quita
+        // Un clic activa el doble salto y otro clic lo quita
         if (!e.repeat) {
             boltActivo = !boltActivo;
             actualizarHUD();
@@ -2253,9 +2235,7 @@ UI.continuar.addEventListener("click", () => {
     reloj.getDelta();
 });
 
-// =====================================================
-// 21. SONIDOS Y MUSICA
-// =====================================================
+//sonidos del juego
 
 const SONIDOS = {
     muerte: new Audio("sonidos/death.mp3"),
@@ -2355,9 +2335,7 @@ function actualizarAudioEstado(nuevoEstado) {
     }
 }
 
-// =====================================================
-// DESBLOQUEO DE AUDIO POR INTERACCION
-// =====================================================
+//audio por interacción
 
 function desbloquearAudio() {
     if (musicaActiva && musicaActiva.paused) {
@@ -2384,10 +2362,7 @@ window.addEventListener(
     "keydown",
     desbloquearAudio
 );
-
-// =====================================================
-// EFECTOS DE SONIDO GENERADOS
-// =====================================================
+//efectos
 
 let audioCtx = null;
 
@@ -2433,10 +2408,7 @@ function sonido(frecuencia, duracion) {
     }
 }
 
-// =====================================================
-// 22. PARTICULAS
-// =====================================================
-
+//particulas
 function crearParticulas(pos, color) {
     for (let i = 0; i < 12; i++) {
         const p = esfera(
@@ -2487,15 +2459,13 @@ function actualizarParticulas(dt) {
     }
 }
 
-// =====================================================
-// 23. MOVIMIENTO DEL JUGADOR
-// =====================================================
+//movimiento jugador 
 
 function actualizarJugador(dt) {
     let dx = 0;
     let dz = 0;
 
-    // Controles del jugador
+    // Controles
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
     if (teclas["a"] || teclas["arrowleft"]) dx++;
@@ -2513,11 +2483,9 @@ function actualizarJugador(dt) {
         astro.position.z +=
             dz * CONFIG.velocidadJugador * dt;
 
-        // El personaje gira hacia donde camina (W = al frente, A/D = a los lados)
-        // El personaje NO gira con las teclas: siempre mira al frente
         astro.rotation.y = 0;
 
-        // Animacion de brazos y piernas
+
         const paso =
             Math.sin(relojMundo * 12) * 0.4;
 
@@ -2533,7 +2501,7 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
-    // Animacion del robot (si tiene)
+    
     actualizarAnimacionAstro(longitud > 0);
 
     if (mixerAstro) {
@@ -2542,13 +2510,13 @@ function actualizarJugador(dt) {
 
     animarCaminarRobot(longitud > 0, dt);
 
-    // Gravedad y salto (el suelo sube si hay una plataforma debajo)
+    // Gravedad y salto 
     const suelo = alturaSuelo(
         astro.position.x,
         astro.position.z
     );
 
-    // Si camina hacia un tronco, se sube encima
+    // Si camina hacia un tronco se sube encima
     if (astro.position.y < suelo) {
         astro.position.y = suelo;
 
@@ -2575,7 +2543,7 @@ function actualizarJugador(dt) {
         }
     }
 
-    // Limites del escenario
+    // Limites de la escena
     astro.position.x = THREE.MathUtils.clamp(
         astro.position.x,
         -CONFIG.limiteX,
@@ -2599,9 +2567,7 @@ function actualizarJugador(dt) {
         Math.floor(invulnerable * 10) % 2 === 0;
 }
 
-// =====================================================
-// 24. MOVIMIENTO DE OBSTACULOS
-// =====================================================
+// movimiento de los obstaculos
 
 function actualizarMoviles(dt) {
 
@@ -2642,17 +2608,14 @@ function actualizarMoviles(dt) {
     }
 }
 
-// =====================================================
-// 25. COLISIONES
-// =====================================================
+//colisiones
 
 function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-    // -----------------------------------------------
-    // COLISIONES CON VEHICULOS
-    // -----------------------------------------------
+}
+//colision con carros
 
     if (astro.position.y < 0.65) {
         for (const v of vehiculos) {
@@ -2669,10 +2632,7 @@ function comprobarColisiones(dt) {
             }
         }
     }
-
-    // -----------------------------------------------
-    // COLISIONES CON SIERRAS
-    // -----------------------------------------------
+//colision con sierras
 
     if (astro.position.y < 1.5) {
         for (const s of sierras) {
@@ -2690,14 +2650,12 @@ function comprobarColisiones(dt) {
         }
     }
 
-    // -----------------------------------------------
-    // RIO Y TRONCOS
-    // -----------------------------------------------
+   //rio y plataformas
 
     if (filasAgua.has(Math.round(z))) {
         const soporte = buscarTronco(x, z);
 
-        // Astro se desplaza junto al tronco
+        // Astro se desplaza junto a la plataforma
         if (
             soporte &&
             astro.position.y < ALTURA_TRONCO + 0.15
@@ -2759,9 +2717,7 @@ function comprobarColisiones(dt) {
     }
 }
 
-// =====================================================
-// 26. CAMARAS
-// =====================================================
+//camara
 
 const posCamara = new THREE.Vector3();
 const mirar = new THREE.Vector3();
@@ -2788,7 +2744,7 @@ function actualizarCamara(dt) {
 
     camara.lookAt(mirarSuave);
 
-    // El cielo acompana al jugador
+    
     cielo.position.set(
         astro.position.x,
         0,
@@ -2796,9 +2752,7 @@ function actualizarCamara(dt) {
     );
 }
 
-// =====================================================
-// 27. ANIMACION DEL ESCENARIO
-// =====================================================
+//animacion escenario
 
 function actualizarDecoracion(dt) {
     bolt.position.lerp(
@@ -2811,7 +2765,7 @@ function actualizarDecoracion(dt) {
         1 - Math.exp(-5 * dt)
     );
 
-    // El drone mira al frente y se inclina un poco al subir/bajar
+
     bolt.rotation.y = 0;
     bolt.rotation.x = THREE.MathUtils.lerp(
         bolt.rotation.x,
@@ -2821,7 +2775,7 @@ function actualizarDecoracion(dt) {
 
     if (mixerBolt) mixerBolt.update(dt);
 
-    // Brillo cuando Bolt esta activo (mas fuerte si ya gasto el doble salto)
+    // Brillo cuando Bolt esta activo 
     luzBolt.intensity = THREE.MathUtils.lerp(
         luzBolt.intensity,
         boltActivo ? (dobleSaltoUsado ? 0.8 : 3) : 0,
@@ -2837,13 +2791,13 @@ function actualizarDecoracion(dt) {
                 ALTURA_GEMA +
                 Math.sin(relojMundo * 2.2) * 0.25;
 
-            // El resplandor morado late
+            // resplandor morado 
             const tam = 4 + Math.sin(relojMundo * 3) * 0.4;
             gema.halo.scale.set(tam, tam, 1);
         }
     }
 
-    // El trofeo flota y su resplandor late
+    // El trofeo flota 
     if (trofeo && trofeoSprite && trofeoHalo) {
         const pulso = Math.sin(relojMundo * 2.5);
 
@@ -2857,10 +2811,7 @@ function actualizarDecoracion(dt) {
         trofeoHalo.material.opacity = 0.75 + pulso * 0.2;
     }
 }
-
-// =====================================================
-// 28. BUCLE PRINCIPAL
-// =====================================================
+//bucle
 
 function animar() {
     requestAnimationFrame(animar);
@@ -2898,9 +2849,7 @@ function animar() {
     renderer.render(escena, camara);
 }
 
-// =====================================================
-// 29. INICIALIZACION
-// =====================================================
+//inicializaciom
 
 // Primero se cargan los carros GLB y luego se arma el mapa
 Promise.all([
@@ -2917,10 +2866,7 @@ construirTramo(TRAMOS[0]);
 actualizarHUD();
 actualizarAudioEstado(ESTADO.INICIO);
 animar();
-
-// =====================================================
-// 30. AJUSTE DE PANTALLA
-// =====================================================
+//ajuste de pantalla 
 
 window.addEventListener("resize", () => {
     camara.aspect =
