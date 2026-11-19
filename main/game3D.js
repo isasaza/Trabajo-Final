@@ -25,7 +25,7 @@ const TRAMOS = [
         inicio: 0,
         fin: 23,
         carros: 2.5,
-        troncos: 1.4,
+        plataformas: 1.4,
         zonas: [
             ["suelo", 0, 3],
             ["carretera", 4, 8],
@@ -40,7 +40,7 @@ const TRAMOS = [
         inicio: 24,
         fin: 47,
         carros: 4.2,
-        troncos: 1.9,
+        plataformas: 1.9,
         zonas: [
             ["suelo", 24, 26],
             ["carretera", 27, 31],
@@ -55,7 +55,7 @@ const TRAMOS = [
         inicio: 48,
         fin: 73,
         carros: 6,
-        troncos: 2.5,
+        plataformas: 2.5,
         zonas: [
             ["suelo", 48, 50],
             ["carretera", 51, 55],
@@ -95,7 +95,7 @@ const filasAgua = new Set();
 const gruposTramo = new Map();
 
 const vehiculos = [];
-const troncos = [];
+const plataformas = [];
 const sierras = [];
 const gemas = [];
 const particulas = [];
@@ -890,109 +890,6 @@ async function cargarFarola() {
     }
 }
 
-// --- Personaje GLB (Astro) ----------------------------------------
-const RUTA_PERSONAJE = "models/personaje.glb";
-const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
-const ROTACION_ASTRO = 0;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
-
-let mixerAstro = null;
-let accionCaminar = null;
-let accionReposo = null;
-let astroMoviendo = null;
-
-async function cargarPersonaje() {
-    try {
-        const gltf = await new GLTFLoader().loadAsync(RUTA_PERSONAJE);
-        const modelo = gltf.scene;
-
-        const caja3 = new THREE.Box3().setFromObject(modelo);
-        const tam = caja3.getSize(new THREE.Vector3());
-        const centro = caja3.getCenter(new THREE.Vector3());
-
-        const escala = ALTO_ASTRO / tam.y;
-
-        modelo.scale.setScalar(escala);
-        modelo.position.set(
-            -centro.x * escala,
-            -caja3.min.y * escala,
-            -centro.z * escala
-        );
-
-        modelo.traverse(o => {
-            if (o.isMesh) {
-                o.castShadow = true;
-                o.receiveShadow = true;
-                o.frustumCulled = false;
-            }
-        });
-
-        const pivote = new THREE.Group();
-        pivote.rotation.y = ROTACION_ASTRO;
-        pivote.add(modelo);
-
-        // Se esconden las piezas de cajas y se usa el modelo
-        for (const hijo of astro.children) {
-            hijo.visible = false;
-        }
-
-        astro.add(pivote);
-
-        // Animaciones del GLB (si trae)
-        const clips = gltf.animations;
-
-        console.log(
-            "Animaciones del personaje:",
-            clips.map(c => c.name)
-        );
-
-        if (clips.length > 0) {
-            mixerAstro = new THREE.AnimationMixer(modelo);
-
-            const buscar = patron =>
-                clips.find(c => patron.test(c.name));
-
-            const clipCaminar =
-                buscar(/walk|run|camin|corr/i) || clips[0];
-
-            const clipReposo = buscar(/idle|rest|stand|repos|quiet/i);
-
-            accionCaminar = mixerAstro.clipAction(clipCaminar);
-
-            if (clipReposo && clipReposo !== clipCaminar) {
-                accionReposo = mixerAstro.clipAction(clipReposo);
-            }
-
-            astroMoviendo = null;
-            actualizarAnimacionAstro(false);
-        }
-
-    } catch (err) {
-        console.warn("No se pudo cargar " + RUTA_PERSONAJE, err);
-    }
-}
-
-function actualizarAnimacionAstro(moviendo) {
-    if (!mixerAstro || moviendo === astroMoviendo) return;
-
-    astroMoviendo = moviendo;
-
-    if (moviendo) {
-        accionCaminar.paused = false;
-        accionCaminar.reset().fadeIn(0.15).play();
-
-        if (accionReposo) accionReposo.fadeOut(0.15);
-
-    } else if (accionReposo) {
-        accionReposo.reset().fadeIn(0.15).play();
-        accionCaminar.fadeOut(0.15);
-
-    } else {
-        // Sin animacion de reposo: se queda congelado en el cuadro actual
-        accionCaminar.play();
-        accionCaminar.paused = true;
-    }
-}
-
 async function cargarCarros() {
     const resultados = await Promise.allSettled(
         RUTAS_CARROS.map(ruta => cargarModeloOBJ(ruta))
@@ -1118,108 +1015,160 @@ function crearCarriles(grupo, zona, tramo) {
 // 14. TRONCOS
 // =====================================================
 
-// Textura de madera (carpeta img). Si no carga, se ve el color base.
-const texturaTronco = new THREE.TextureLoader().load(
-    "img/texturatronco.jpg"
-);
+// =====================================================
+// PLATAFORMAS GALACTICAS (suben y bajan sobre el rio)
+// =====================================================
 
-texturaTronco.colorSpace = THREE.SRGBColorSpace;
-texturaTronco.wrapS = THREE.RepeatWrapping;
-texturaTronco.wrapT = THREE.RepeatWrapping;
-texturaTronco.repeat.set(1, 1);   // prueba (2, 1) o (1, 2) si la veta se ve estirada
+const LARGO_PLATAFORMA = 2.6;
+const ANCHO_PLATAFORMA = 0.9;
+const ALTURA_MAX = 0.5;          // parte de arriba cuando esta elevada
+const ALTURA_MIN = -0.45;        // sumergida bajo el agua
+const UMBRAL_PLATAFORMA = 0.0;   // por debajo de esta altura ya no sostiene
+const SEPARACION_PLATAFORMAS = 5.2;
 
-const MAT_TRONCO = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    map: texturaTronco,
-    roughness: 0.9,
-    metalness: 0,
-    // un poco de brillo propio para que no se vea apagado en la noche
-    emissive: 0xffffff,
-    emissiveMap: texturaTronco,
-    emissiveIntensity: 0.3
-});
+const COLOR_PLATAFORMA_ACTIVA = new THREE.Color(0x27edff);
+const COLOR_PLATAFORMA_ALERTA = new THREE.Color(0xff4567);
 
-const RADIO_TRONCO = 0.42;   // diametro ~0.85, igual que el ancho anterior
-const LARGO_TRONCO = 3.6;    // la colision usa este largo (no cambiar)
-
-// Altura de la parte de arriba del tronco (donde se para el personaje)
-const ALTURA_TRONCO = 0.03 + RADIO_TRONCO;
-
-// Tronco que esta debajo de la posicion (x, z), o null
-function buscarTronco(x, z) {
-    for (const t of troncos) {
+// Plataforma que sostiene en la posicion (x, z), o null
+function buscarPlataforma(x, z) {
+    for (const p of plataformas) {
         if (
-            Math.abs(x - t.mesh.position.x) < LARGO_TRONCO / 2 - 0.15 &&
-            Math.abs(z - t.mesh.position.z) < 0.55
+            p.mesh.position.y >= UMBRAL_PLATAFORMA &&
+            Math.abs(x - p.mesh.position.x) < LARGO_PLATAFORMA / 2 &&
+            Math.abs(z - p.mesh.position.z) < 0.55
         ) {
-            return t;
+            return p;
         }
     }
 
     return null;
 }
 
-// Altura del piso en ese punto: 0 normalmente, o la del tronco en el rio
+// Altura del piso en ese punto: 0 normalmente, o la de la plataforma en el rio
 function alturaSuelo(x, z) {
-    if (filasAgua.has(Math.round(z)) && buscarTronco(x, z)) {
-        return ALTURA_TRONCO;
+    if (filasAgua.has(Math.round(z))) {
+        const p = buscarPlataforma(x, z);
+
+        if (p) {
+            return p.mesh.position.y;
+        }
     }
 
     return 0;
 }
 
-function crearTronco(grupoTramo, z, x, velocidad) {
+function crearPlataforma(grupoTramo, z, x, periodo, fase) {
     const grupo = new THREE.Group();
 
-    // Tronco cilindrico acostado a lo largo del eje X
-    const cuerpo = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-            RADIO_TRONCO, RADIO_TRONCO,
-            LARGO_TRONCO, 24
-        ),
-        MAT_TRONCO
+    // Casco oscuro
+    grupo.add(
+        caja(
+            LARGO_PLATAFORMA, 0.3, ANCHO_PLATAFORMA,
+            M.oscuro,
+            0, -0.17, 0
+        )
     );
 
-    cuerpo.rotation.z = Math.PI / 2;
-    cuerpo.position.y = 0.03;   // la parte de arriba queda a la altura de antes
-    cuerpo.castShadow = true;
-    cuerpo.receiveShadow = true;
+    // Placa de energia (cian; se pone roja cuando esta por hundirse)
+    const material = mat(0x27edff, 0.2, 1.4);
 
-    grupo.add(cuerpo);
+    const placa = caja(
+        LARGO_PLATAFORMA - 0.3, 0.05, ANCHO_PLATAFORMA - 0.25,
+        material,
+        0, -0.01, 0
+    );
 
-    // Aros neon en los extremos
-    for (const extremo of [-1, 1]) {
-        const aro = cilindro(
-            RADIO_TRONCO + 0.03, RADIO_TRONCO + 0.03, 0.1,
-            M.cian,
-            extremo * 1.7, 0.03, 0
+    placa.castShadow = false;
+    grupo.add(placa);
+
+    // Bordes de neon violeta
+    const bordes = bordeNeon(
+        new THREE.BoxGeometry(
+            LARGO_PLATAFORMA, 0.3, ANCHO_PLATAFORMA
+        ),
+        0x9c6dff
+    );
+
+    bordes.position.y = -0.17;
+    grupo.add(bordes);
+
+    // Propulsores rosas debajo
+    for (const lado of [-1, 1]) {
+        grupo.add(
+            esfera(
+                0.15, M.rosa,
+                lado * (LARGO_PLATAFORMA / 2 - 0.3), -0.38, 0
+            )
         );
-
-        aro.rotation.z = Math.PI / 2;
-        grupo.add(aro);
     }
 
-    grupo.position.set(x, 0, z);
+    const centro = (ALTURA_MAX + ALTURA_MIN) / 2;
+    const amplitud = (ALTURA_MAX - ALTURA_MIN) / 2;
+
+    grupo.position.set(
+        x,
+        centro + amplitud * Math.sin(fase),
+        z
+    );
+
     grupoTramo.add(grupo);
 
-    troncos.push({
+    plataformas.push({
         mesh: grupo,
-        velocidad
+        velocidad: 0,
+        material,
+        omega: (Math.PI * 2) / periodo,
+        fase
     });
 }
 
-function crearRio(grupo, zona, tramo) {
-    for (let z = zona[1]; z <= zona[2]; z++) {
-        const vel =
-            ((z - zona[1]) % 2 === 0 ? 1 : -1) *
-            tramo.troncos;
+function actualizarPlataformas() {
+    const centro = (ALTURA_MAX + ALTURA_MIN) / 2;
+    const amplitud = (ALTURA_MAX - ALTURA_MIN) / 2;
 
-        for (let j = 0; j < 3; j++) {
-            crearTronco(
+    for (const p of plataformas) {
+        p.mesh.position.y =
+            centro +
+            amplitud * Math.sin(relojMundo * p.omega + p.fase);
+
+        // Aviso visual: roja cuando esta bajando y ya casi no sostiene
+        const alerta = THREE.MathUtils.clamp(
+            (0.25 - p.mesh.position.y) / 0.25,
+            0,
+            1
+        );
+
+        p.material.color.lerpColors(
+            COLOR_PLATAFORMA_ACTIVA,
+            COLOR_PLATAFORMA_ALERTA,
+            alerta
+        );
+
+        p.material.emissive.copy(p.material.color);
+    }
+}
+
+function crearRio(grupo, zona, tramo) {
+    // Cada nivel va mas rapido (valor del tramo = rapidez)
+    const periodo = 7 / tramo.plataformas;
+
+    for (let z = zona[1]; z <= zona[2]; z++) {
+        const fila = z - zona[1];
+
+        // Las filas alternas se desplazan media separacion
+        const desfase = (fila % 2) * (SEPARACION_PLATAFORMAS / 2);
+
+        for (let j = -3; j <= 3; j++) {
+            const x = j * SEPARACION_PLATAFORMAS + desfase;
+
+            if (Math.abs(x) > 11) continue;
+
+            crearPlataforma(
                 grupo,
                 z,
-                -10 + j * 10,
-                vel
+                x,
+                periodo,
+                fila * 1.3 + j * 2.1
             );
         }
     }
@@ -1611,7 +1560,7 @@ function limpiarProgreso() {
     filasAgua.clear();
 
     vehiculos.length = 0;
-    troncos.length = 0;
+    plataformas.length = 0;
     sierras.length = 0;
     gemas.length = 0;
 
@@ -1769,7 +1718,7 @@ window.addEventListener("keydown", e => {
         astro.position.y <= alturaSuelo(
             astro.position.x,
             astro.position.z
-        ) + 0.01
+        ) + 0.15
     ) {
         velocidadVertical = CONFIG.salto;
         reproducirSfx(SONIDOS.salto);
@@ -2075,36 +2024,29 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
-    // Animacion del modelo GLB (si tiene)
-    actualizarAnimacionAstro(longitud > 0);
-
-    if (mixerAstro) {
-        mixerAstro.update(dt);
-    }
-
-    // Gravedad y salto (el suelo sube si hay un tronco debajo)
+    // Gravedad y salto (el suelo sube si hay una plataforma debajo)
     const suelo = alturaSuelo(
         astro.position.x,
         astro.position.z
     );
 
-    // Si camina hacia un tronco, se sube encima
-    if (astro.position.y < suelo) {
-        astro.position.y = suelo;
-
-        if (velocidadVertical < 0) {
-            velocidadVertical = 0;
-        }
-    }
-
     if (
-        astro.position.y > suelo ||
-        velocidadVertical > 0
+        velocidadVertical <= 0 &&
+        astro.position.y <= suelo + 0.12
     ) {
+        // Esta sobre el piso o sobre una plataforma: se pega a ella
+        // (sube y baja con la plataforma)
+        astro.position.y = suelo;
+        velocidadVertical = 0;
+
+    } else {
         velocidadVertical -= CONFIG.gravedad * dt;
         astro.position.y += velocidadVertical * dt;
 
-        if (astro.position.y < suelo) {
+        if (
+            astro.position.y < suelo &&
+            velocidadVertical <= 0
+        ) {
             astro.position.y = suelo;
             velocidadVertical = 0;
         }
@@ -2143,8 +2085,11 @@ function actualizarJugador(dt) {
 
 function actualizarMoviles(dt) {
 
-    // Vehiculos y troncos
-    for (const lista of [vehiculos, troncos]) {
+    // Plataformas galacticas (suben y bajan)
+    actualizarPlataformas();
+
+    // Vehiculos
+    for (const lista of [vehiculos]) {
         for (const obj of lista) {
             obj.mesh.position.x +=
                 obj.velocidad * dt;
@@ -2233,24 +2178,9 @@ function comprobarColisiones(dt) {
     // -----------------------------------------------
 
     if (filasAgua.has(Math.round(z))) {
-        const soporte = buscarTronco(x, z);
+        const soporte = buscarPlataforma(x, z);
 
-        // Astro se desplaza junto al tronco
-        if (
-            soporte &&
-            astro.position.y < ALTURA_TRONCO + 0.15
-        ) {
-            astro.position.x +=
-                soporte.velocidad * dt;
-
-            astro.position.x = THREE.MathUtils.clamp(
-                astro.position.x,
-                -CONFIG.limiteX,
-                CONFIG.limiteX
-            );
-        }
-
-        // Pierde una vida si cae al agua
+        // Pierde una vida si cae al agua (o si la plataforma se hunde)
         if (
             !soporte &&
             astro.position.y < 0.15
@@ -2455,8 +2385,7 @@ function animar() {
 // Primero se cargan los carros GLB y luego se arma el mapa
 Promise.all([
     cargarCarros(),
-    cargarFarola(),
-    cargarPersonaje()
+    cargarFarola()
 ]).finally(() => {
     limpiarProgreso();
     actualizarHUD();
