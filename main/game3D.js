@@ -898,7 +898,7 @@ async function cargarFarola() {
 // --- Personaje GLB (Astro = robot) --------------------------------
 const RUTA_PERSONAJE = "models/robot.glb";
 const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
-const ROTACION_ASTRO = -Math.PI; 
+const ROTACION_ASTRO = Math.PI;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
 
 let mixerAstro = null;
 let accionCaminar = null;
@@ -2223,7 +2223,7 @@ function actualizarJugador(dt) {
         astro.position.z +=
             dz * CONFIG.velocidadJugador * dt;
 
-        astro.rotation.y = Math.atan2(dx, dz);
+        // El robot siempre mira al frente: las teclas solo lo desplazan, no lo giran
 
         // Animacion de brazos y piernas
         const paso =
