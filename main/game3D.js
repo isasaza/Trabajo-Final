@@ -898,12 +898,80 @@ async function cargarFarola() {
 // --- Personaje GLB (Astro = robot) --------------------------------
 const RUTA_PERSONAJE = "models/robot.glb";
 const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
-const ROTACION_ASTRO = -1;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
+const ROTACION_ASTRO = 0;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
 
 let mixerAstro = null;
 let accionCaminar = null;
 let accionReposo = null;
 let astroMoviendo = null;
+let pivoteAstro = null;
+let modeloRobot = null;
+let baseRobotY = 0;
+let faseCaminar = 0;
+let fuerzaCaminar = 0;
+
+const partesRobot = [];   // piernas y brazos encontrados en el GLB (si tiene)
+
+// Busca piernas/pies y brazos por nombre para moverlos al caminar
+function buscarPartesRobot(modelo) {
+    modelo.updateWorldMatrix(true, true);
+
+    const centroX = new THREE.Box3()
+        .setFromObject(modelo)
+        .getCenter(new THREE.Vector3()).x;
+
+    const v = new THREE.Vector3();
+
+    modelo.traverse(o => {
+        const n = o.name || "";
+
+        const esPierna = /leg|foot|thigh|shin|pierna|pie\b/i.test(n);
+        const esBrazo = /arm|hand|shoulder|brazo|mano/i.test(n);
+
+        if (!esPierna && !esBrazo) return;
+
+        // Si el padre ya se mueve, no se mueve dos veces
+        if (partesRobot.some(p => p.obj === o.parent)) return;
+
+        o.getWorldPosition(v);
+
+        partesRobot.push({
+            obj: o,
+            base: o.rotation.x,
+            // lados opuestos al reves; brazos opuestos a las piernas
+            signo: (v.x < centroX ? -1 : 1) * (esBrazo ? -1 : 1)
+        });
+    });
+
+    console.log(
+        "Partes del robot que se mueven:",
+        partesRobot.map(p => p.obj.name)
+    );
+}
+
+// Respaldo si el GLB no trae animaciones: pasos, balanceo y saltito
+function animarCaminarRobot(moviendo, dt) {
+    if (!modeloRobot || mixerAstro) return;
+
+    fuerzaCaminar = THREE.MathUtils.lerp(
+        fuerzaCaminar,
+        moviendo ? 1 : 0,
+        1 - Math.exp(-12 * dt)
+    );
+
+    if (moviendo) faseCaminar += dt * 10;
+
+    const seno = Math.sin(faseCaminar);
+
+    for (const p of partesRobot) {
+        p.obj.rotation.x = p.base + p.signo * seno * 0.7 * fuerzaCaminar;
+    }
+
+    modeloRobot.position.y =
+        baseRobotY + Math.abs(seno) * 0.08 * fuerzaCaminar;
+
+    modeloRobot.rotation.z = seno * 0.05 * fuerzaCaminar;
+}
 
 async function cargarPersonaje() {
     try {
@@ -942,6 +1010,10 @@ async function cargarPersonaje() {
 
         astro.add(pivote);
 
+        pivoteAstro = pivote;
+        modeloRobot = modelo;
+        baseRobotY = modelo.position.y;
+
         // Animaciones del GLB (si trae)
         const clips = gltf.animations;
 
@@ -971,6 +1043,10 @@ async function cargarPersonaje() {
 
             astroMoviendo = null;
             actualizarAnimacionAstro(false);
+
+        } else {
+            // Sin animaciones: se mueven piernas/brazos por nombre
+            buscarPartesRobot(modelo);
         }
 
     } catch (err) {
@@ -1890,6 +1966,15 @@ function recogerGema(gema) {
 // 20. CONTROLES
 // =====================================================
 
+const OPCIONES_ROTACION = [
+    [0, "0"],
+    [Math.PI / 2, "Math.PI / 2"],
+    [Math.PI, "Math.PI"],
+    [-Math.PI / 2, "-Math.PI / 2"]
+];
+
+let indiceRotacion = 0;
+
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
 
@@ -1912,6 +1997,18 @@ window.addEventListener("keydown", e => {
             actualizarHUD();
         }
         return;
+    }
+
+    // Calibracion: R gira el robot de 90 en 90 grados (el valor sale en consola)
+    if (k === "r" && !e.repeat && pivoteAstro) {
+        indiceRotacion = (indiceRotacion + 1) % OPCIONES_ROTACION.length;
+
+        pivoteAstro.rotation.y = OPCIONES_ROTACION[indiceRotacion][0];
+
+        console.log(
+            "ROTACION_ASTRO =",
+            OPCIONES_ROTACION[indiceRotacion][1]
+        );
     }
 
     teclas[k] = true;
@@ -2223,8 +2320,8 @@ function actualizarJugador(dt) {
         astro.position.z +=
             dz * CONFIG.velocidadJugador * dt;
 
-
-        // El robot siempre mira al frente: las teclas solo lo desplazan, no lo giran
+        // El personaje gira hacia donde camina (W = al frente, A/D = a los lados)
+        astro.rotation.y = Math.atan2(dx, dz);
 
         // Animacion de brazos y piernas
         const paso =
@@ -2248,6 +2345,8 @@ function actualizarJugador(dt) {
     if (mixerAstro) {
         mixerAstro.update(dt);
     }
+
+    animarCaminarRobot(longitud > 0, dt);
 
     // Gravedad y salto (el suelo sube si hay una plataforma debajo)
     const suelo = alturaSuelo(
