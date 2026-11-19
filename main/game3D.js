@@ -895,6 +895,78 @@ async function cargarFarola() {
     }
 }
 
+// --- Drone GLB (reemplaza a Bolt) ---------------------------------
+const RUTA_DRONE = "models/drone.glb";
+const TAMANO_DRONE = 1.1;       // lado mas largo del drone en el juego
+const ROTACION_DRONE = 0;       // si mira de lado o de espaldas: Math.PI, Math.PI / 2 o -Math.PI / 2
+
+let mixerDrone = null;
+const helicesDrone = [];        // helices sueltas del modelo (si tiene)
+
+async function cargarDrone() {
+    try {
+        const gltf = await new GLTFLoader().loadAsync(RUTA_DRONE);
+        const modelo = gltf.scene;
+
+        const caja3 = new THREE.Box3().setFromObject(modelo);
+        const tam = caja3.getSize(new THREE.Vector3());
+        const centro = caja3.getCenter(new THREE.Vector3());
+
+        const escala = TAMANO_DRONE / Math.max(tam.x, tam.y, tam.z);
+
+        // Centrado en su propio origen: Bolt ya lo hace flotar a su altura
+        modelo.scale.setScalar(escala);
+        modelo.position.set(
+            -centro.x * escala,
+            -centro.y * escala,
+            -centro.z * escala
+        );
+
+        modelo.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+                o.frustumCulled = false;
+            }
+
+            // Helices sueltas: giran solas aunque el GLB no traiga animacion
+            if (/prop|rotor|blade|helice|fan/i.test(o.name || "")) {
+                helicesDrone.push(o);
+            }
+        });
+
+        const pivote = new THREE.Group();
+        pivote.rotation.y = ROTACION_DRONE;
+        pivote.add(modelo);
+
+        // Se esconde la bolita de antes y se usa el drone
+        for (const hijo of bolt.children) {
+            hijo.visible = false;
+        }
+
+        bolt.add(pivote);
+
+        // Animaciones del GLB (si trae): se reproducen todas en bucle
+        if (gltf.animations.length > 0) {
+            mixerDrone = new THREE.AnimationMixer(modelo);
+
+            for (const clip of gltf.animations) {
+                mixerDrone.clipAction(clip).play();
+            }
+        }
+
+        console.log(
+            "Drone cargado. Animaciones:",
+            gltf.animations.map(c => c.name),
+            "Helices:",
+            helicesDrone.map(h => h.name)
+        );
+
+    } catch (err) {
+        console.warn("No se pudo cargar " + RUTA_DRONE, err);
+    }
+}
+
 // --- Personaje GLB (Astro = robot) --------------------------------
 const RUTA_PERSONAJE = "models/robot.glb";
 const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
@@ -904,7 +976,6 @@ let mixerAstro = null;
 let accionCaminar = null;
 let accionReposo = null;
 let astroMoviendo = null;
-let pivoteAstro = null;
 let modeloRobot = null;
 let baseRobotY = 0;
 let faseCaminar = 0;
@@ -1014,6 +1085,180 @@ function buscarPartesRobot(modelo) {
     );
 }
 
+// El robot.glb es UNA sola malla, sin huesos ni animaciones. Aqui se separa por
+// zonas en cuerpo, 2 piernas y 2 brazos; cada extremidad queda en un pivote
+// (cadera u hombro) para poder balancearla al caminar.
+function dividirRobot(modelo) {
+    let malla = null;
+    let cantidad = 0;
+
+    modelo.traverse(o => {
+        if (o.isMesh) {
+            malla = malla || o;
+            cantidad++;
+        }
+    });
+
+    if (!malla || cantidad !== 1 || malla.isSkinnedMesh) return false;
+
+    const geo = malla.geometry;
+    const idx = geo.index;
+    const pos = geo.attributes.position;
+
+    if (!idx || !pos) return false;
+
+    geo.computeBoundingBox();
+
+    const bb = geo.boundingBox;
+    const alto = bb.max.y - bb.min.y;
+    const ancho = bb.max.z - bb.min.z;
+
+    // Solo para este robot (brazos abiertos: ancho ~ 0.88 del alto)
+    if (
+        Math.abs(ancho / alto - 0.877) > 0.1 ||
+        Math.abs((bb.max.z + bb.min.z) / 2) > alto * 0.05
+    ) {
+        return false;
+    }
+
+    // Las zonas estan medidas en unidades donde el robot mide 35.47 de alto
+    const u = alto / 35.47;
+    const baseY = bb.min.y;
+
+    // 0 cuerpo | 1 pierna (-z) | 2 pierna (+z) | 3 brazo (-z) | 4 brazo (+z)
+    const grupos = [[], [], [], [], []];
+    const manos = [new THREE.Vector3(), new THREE.Vector3()];
+    const nManos = [0, 0];
+
+    for (let t = 0; t < idx.count; t += 3) {
+        const i0 = idx.getX(t);
+        const i1 = idx.getX(t + 1);
+        const i2 = idx.getX(t + 2);
+
+        const cx = (pos.getX(i0) + pos.getX(i1) + pos.getX(i2)) / 3 / u;
+        const cy = ((pos.getY(i0) + pos.getY(i1) + pos.getY(i2)) / 3 - baseY) / u;
+        const cz = (pos.getZ(i0) + pos.getZ(i1) + pos.getZ(i2)) / 3 / u;
+        const az = Math.abs(cz);
+
+        let g = 0;
+
+        if (cy < 12.3 && az < 7.2) {
+            g = cz < 0 ? 1 : 2;
+
+        } else if (
+            cy < 22.6 && cy >= 9.5 && az > 3.7 &&
+            (cy >= 13.5 || az >= 7.2)
+        ) {
+            g = cz < 0 ? 3 : 4;
+
+            if (az > 11) {
+                const lado = cz < 0 ? 0 : 1;
+                manos[lado].add(new THREE.Vector3(cx, cy, cz));
+                nManos[lado]++;
+            }
+        }
+
+        grupos[g].push(i0, i1, i2);
+    }
+
+    // Cuerpo: reemplaza a la malla original por un contenedor con su misma pose
+    const contenedor = new THREE.Group();
+    contenedor.position.copy(malla.position);
+    contenedor.quaternion.copy(malla.quaternion);
+    contenedor.scale.copy(malla.scale);
+
+    const padre = malla.parent;
+    padre.add(contenedor);
+    padre.remove(malla);
+
+    const crearMalla = (indices, junta) => {
+        const g = geo.clone();
+        g.setIndex(indices);
+
+        const m = new THREE.Mesh(g, malla.material);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        m.frustumCulled = false;
+
+        if (!junta) {
+            contenedor.add(m);
+            return null;
+        }
+
+        // La malla queda centrada en su articulacion para rotar desde ahi
+        g.translate(-junta.x, -junta.y, -junta.z);
+
+        const pivote = new THREE.Group();
+        pivote.position.copy(junta);
+        pivote.add(m);
+        contenedor.add(pivote);
+
+        return pivote;
+    };
+
+    crearMalla(grupos[0], null);
+
+    const adelante = new THREE.Vector3(1, 0, 0);   // el robot mira hacia +x
+
+    // [grupo, lado (-1 / +1), esBrazo]
+    const extremidades = [
+        [1, -1, false],
+        [2, 1, false],
+        [3, -1, true],
+        [4, 1, true]
+    ];
+
+    for (const [numero, lado, esBrazo] of extremidades) {
+        if (grupos[numero].length === 0) continue;
+
+        // Articulacion: cadera o hombro (en las unidades del modelo)
+        const junta = esBrazo
+            ? new THREE.Vector3(0, 21.5, lado * 4.5)
+            : new THREE.Vector3(0, 12.3, lado * 3.2);
+
+        let eje;
+
+        if (esBrazo) {
+            // Eje perpendicular al brazo y a "adelante": el brazo se mueve
+            // hacia adelante y atras sin cambiar de largo
+            const m = manos[lado < 0 ? 0 : 1];
+            const dir = m.clone().divideScalar(Math.max(1, nManos[lado < 0 ? 0 : 1]))
+                .sub(junta);
+
+            eje = dir.normalize().cross(adelante).normalize();
+
+        } else {
+            // Piernas hacia abajo: eje lateral (z)
+            eje = new THREE.Vector3(0, 0, 1);
+        }
+
+        const pivote = crearMalla(
+            grupos[numero],
+            new THREE.Vector3(
+                junta.x * u,
+                baseY + junta.y * u,
+                junta.z * u
+            )
+        );
+
+        partesRobot.push({
+            obj: pivote,
+            base: new THREE.Quaternion(),
+            eje,
+            // piernas alternadas; cada brazo al reves que la pierna de su lado
+            signo: esBrazo ? lado : -lado,
+            amplitud: esBrazo ? 0.5 : 0.7
+        });
+    }
+
+    console.log(
+        "Robot dividido: piernas y brazos listos (" +
+        partesRobot.length + " partes)"
+    );
+
+    return true;
+}
+
 // Respaldo si el GLB no trae animaciones: pasos, balanceo y saltito
 function animarCaminarRobot(moviendo, dt) {
     if (!modeloRobot || mixerAstro) return;
@@ -1041,13 +1286,18 @@ function animarCaminarRobot(moviendo, dt) {
     modeloRobot.position.y =
         baseRobotY + Math.abs(seno) * 0.07 * fuerzaCaminar;
 
-    modeloRobot.rotation.z = seno * 0.04 * fuerzaCaminar;
+    modeloRobot.rotation.z = -0.07 * fuerzaCaminar + seno * 0.02 * fuerzaCaminar;
 }
 
 async function cargarPersonaje() {
     try {
         const gltf = await new GLTFLoader().loadAsync(RUTA_PERSONAJE);
         const modelo = gltf.scene;
+
+        // Sin animaciones propias: se separan piernas y brazos para animarlos
+        if (gltf.animations.length === 0) {
+            dividirRobot(modelo);
+        }
 
         const caja3 = new THREE.Box3().setFromObject(modelo);
         const tam = caja3.getSize(new THREE.Vector3());
@@ -1081,7 +1331,6 @@ async function cargarPersonaje() {
 
         astro.add(pivote);
 
-        pivoteAstro = pivote;
         modeloRobot = modelo;
         baseRobotY = modelo.position.y;
 
@@ -1116,8 +1365,10 @@ async function cargarPersonaje() {
             actualizarAnimacionAstro(false);
 
         } else {
-            // Sin animaciones: se mueven piernas/brazos por nombre
-            buscarPartesRobot(modelo);
+            // Si no se pudo dividir, se buscan piernas/brazos por nombre
+            if (partesRobot.length === 0) {
+                buscarPartesRobot(modelo);
+            }
         }
 
     } catch (err) {
@@ -2037,28 +2288,6 @@ function recogerGema(gema) {
 // 20. CONTROLES
 // =====================================================
 
-const OPCIONES_ROTACION = [
-    [0, "0"],
-    [Math.PI / 2, "Math.PI / 2"],
-    [Math.PI, "Math.PI"],
-    [-Math.PI / 2, "-Math.PI / 2"]
-];
-
-let indiceRotacion = 1;   // empieza en Math.PI / 2 (igual que ROTACION_ASTRO)
-
-// Aviso corto en pantalla al calibrar con la tecla R
-const avisoRotacion = document.createElement("div");
-
-avisoRotacion.style.cssText =
-    "position:fixed;left:50%;top:70px;transform:translateX(-50%);" +
-    "padding:8px 16px;background:rgba(10,14,40,.85);color:#9ff;" +
-    "font:600 15px monospace;border:1px solid #27edff;" +
-    "border-radius:8px;z-index:50;display:none;pointer-events:none";
-
-document.body.appendChild(avisoRotacion);
-
-let temporizadorAviso = null;
-
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
 
@@ -2081,27 +2310,6 @@ window.addEventListener("keydown", e => {
             actualizarHUD();
         }
         return;
-    }
-
-    // Calibracion: R gira el robot de 90 en 90 grados (el valor sale en consola)
-    if (k === "r" && !e.repeat && pivoteAstro) {
-        indiceRotacion = (indiceRotacion + 1) % OPCIONES_ROTACION.length;
-
-        pivoteAstro.rotation.y = OPCIONES_ROTACION[indiceRotacion][0];
-
-        const texto =
-            "ROTACION_ASTRO = " + OPCIONES_ROTACION[indiceRotacion][1];
-
-        console.log(texto);
-
-        avisoRotacion.textContent = texto + "   (R para cambiar)";
-        avisoRotacion.style.display = "block";
-
-        clearTimeout(temporizadorAviso);
-
-        temporizadorAviso = setTimeout(() => {
-            avisoRotacion.style.display = "none";
-        }, 3000);
     }
 
     teclas[k] = true;
@@ -2738,8 +2946,17 @@ function actualizarDecoracion(dt) {
         1 - Math.exp(-5 * dt)
     );
 
-    bolt.rotation.y += dt;
+    // El drone no gira: mira al frente igual que Astro
+    bolt.rotation.y = 0;
     bolt.visible = modoCamara === 0;
+
+    if (mixerDrone) {
+        mixerDrone.update(dt);
+    }
+
+    for (const h of helicesDrone) {
+        h.rotation.y += dt * 40;
+    }
 
     planetaGrande.rotation.y += dt * 0.01;
 
@@ -2819,7 +3036,8 @@ function animar() {
 Promise.all([
     cargarCarros(),
     cargarFarola(),
-    cargarPersonaje()
+    cargarPersonaje(),
+    cargarDrone()
 ]).finally(() => {
     limpiarProgreso();
     actualizarHUD();
