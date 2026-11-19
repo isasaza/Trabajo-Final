@@ -2715,7 +2715,8 @@ function comprobarColisiones(dt) {
 
         return;
     }
-}
+
+
 
 //camara
 
