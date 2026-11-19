@@ -1055,7 +1055,7 @@ function crearCarriles(grupo, zona, tramo) {
 
 const ANCHO_PLATAFORMA = 0.9;
 const GROSOR_PLATAFORMA = 0.22;
-const LARGO_TRONCO = 3.6;    // la colision usa este largo (no cambiar)
+const LARGO_TRONCO = 4.2;    // la colision usa este largo (no cambiar)
 
 // Altura de la parte de arriba de la plataforma (donde se para el personaje)
 const ALTURA_TRONCO = 0.3;
@@ -1180,16 +1180,24 @@ function crearTronco(grupoTramo, z, x, velocidad) {
 }
 
 function crearRio(grupo, zona, tramo) {
+    const cantidad = 5;
+    const separacion = (CONFIG.limiteMoviles * 2) / cantidad;
+
     for (let z = zona[1]; z <= zona[2]; z++) {
+        const fila = z - zona[1];
+
         const vel =
-            ((z - zona[1]) % 2 === 0 ? 1 : -1) *
+            (fila % 2 === 0 ? 1 : -1) *
             tramo.troncos;
 
-        for (let j = 0; j < 3; j++) {
+        // Cada fila desfasada para que siempre haya alguna a mano
+        const desfase = (fila * 2.3) % separacion;
+
+        for (let j = 0; j < cantidad; j++) {
             crearTronco(
                 grupo,
                 z,
-                -10 + j * 10,
+                -CONFIG.limiteMoviles + desfase + j * separacion,
                 vel
             );
         }
@@ -1283,49 +1291,43 @@ const texturaResplandor = crearTexturaResplandor();
 // GEMAS (imagen img/gema.jpg con resplandor morado)
 // =====================================================
 
-const ALTO_GEMA = 1.5;            // tamano de la imagen en el juego
-const ALTURA_GEMA = 1.35;         // a que altura flota
+const ALTO_GEMA = 1.6;            // tamano de la imagen en el juego
+const ALTURA_GEMA = 1.5;          // altura base a la que flota
 const COLOR_GEMA = 0x9c3dff;      // resplandor morado
 
-// La imagen es .jpg (sin transparencia): se recorta en circulo con borde suave
-const canvasGema = document.createElement("canvas");
-canvasGema.width = 256;
-canvasGema.height = 256;
+// Mascara circular suave (blanco = visible, negro = transparente).
+// La imagen es .jpg, asi que se recorta en circulo en vez de verse cuadrada.
+function crearMascaraCircular() {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 128;
 
-const texturaGema = new THREE.CanvasTexture(canvasGema);
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+
+    grad.addColorStop(0, "#fff");
+    grad.addColorStop(0.8, "#fff");
+    grad.addColorStop(1, "#000");
+
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+
+    return new THREE.CanvasTexture(c);
+}
+
+const mascaraGema = crearMascaraCircular();
+
+// Imagen plana de la gema (carpeta img)
+const texturaGema = new THREE.TextureLoader().load(
+    "img/gema.jpg",
+    tex => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+    },
+    undefined,
+    () => console.warn("No se pudo cargar img/gema.jpg")
+);
+
 texturaGema.colorSpace = THREE.SRGBColorSpace;
-
-const imgGema = new Image();
-
-imgGema.onload = () => {
-    const g = canvasGema.getContext("2d");
-
-    g.clearRect(0, 0, 256, 256);
-
-    // Imagen cubriendo el cuadrado
-    g.drawImage(imgGema, 0, 0, 256, 256);
-
-    // Mascara circular con borde difuso
-    g.globalCompositeOperation = "destination-in";
-
-    const mascara = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-    mascara.addColorStop(0, "rgba(0,0,0,1)");
-    mascara.addColorStop(0.78, "rgba(0,0,0,1)");
-    mascara.addColorStop(1, "rgba(0,0,0,0)");
-
-    g.fillStyle = mascara;
-    g.fillRect(0, 0, 256, 256);
-
-    g.globalCompositeOperation = "source-over";
-
-    texturaGema.needsUpdate = true;
-};
-
-imgGema.onerror = () => {
-    console.warn("No se pudo cargar img/gema.jpg");
-};
-
-imgGema.src = "img/gema.jpg";
 
 function crearGema(grupo, numero, z) {
     // Base de la plataforma
@@ -1337,12 +1339,13 @@ function crearGema(grupo, numero, z) {
         )
     );
 
-    // Imagen de la gema + resplandor (siempre miran a la camara)
+    // Imagen plana + resplandor morado (siempre miran a la camara)
     const cristal = new THREE.Group();
 
     const imagen = new THREE.Sprite(
         new THREE.SpriteMaterial({
             map: texturaGema,
+            alphaMap: mascaraGema,
             transparent: true,
             fog: false,
             toneMapped: false
@@ -1364,8 +1367,11 @@ function crearGema(grupo, numero, z) {
         })
     );
 
-    halo.scale.set(4, 4, 1);
-    halo.position.z = -0.01;
+    halo.scale.set(4.2, 4.2, 1);
+
+    // El halo va detras de la imagen
+    halo.renderOrder = 1;
+    imagen.renderOrder = 2;
 
     cristal.add(halo, imagen);
     cristal.position.set(0, ALTURA_GEMA, z);
@@ -2433,9 +2439,10 @@ function actualizarDecoracion(dt) {
 
     for (const gema of gemas) {
         if (!gema.recogida) {
+            // Flota subiendo y bajando
             gema.cristal.position.y =
                 ALTURA_GEMA +
-                Math.sin(relojMundo * 2) * 0.15;
+                Math.sin(relojMundo * 2.2) * 0.25;
 
             // El resplandor morado late
             const tam = 4 + Math.sin(relojMundo * 3) * 0.4;
@@ -2448,7 +2455,7 @@ function actualizarDecoracion(dt) {
         const pulso = Math.sin(relojMundo * 2.5);
 
         trofeoSprite.position.y =
-            ALTURA_TROFEO + Math.sin(relojMundo * 2) * 0.12;
+            ALTURA_TROFEO + Math.sin(relojMundo * 2.2) * 0.25;
 
         trofeoHalo.position.y = trofeoSprite.position.y;
 
