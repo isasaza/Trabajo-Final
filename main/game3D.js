@@ -2480,8 +2480,8 @@ function actualizarJugador(dt) {
     // Controles del jugador
     if (teclas["w"] || teclas["arrowup"]) dz++;
     if (teclas["s"] || teclas["arrowdown"]) dz--;
-    if (teclas["a"] || teclas["arrowright"]) dx++;
-    if (teclas["d"] || teclas["arrowleft"]) dx--;
+    if (teclas["a"] || teclas["arrowrleft"]) dx--;
+    if (teclas["d"] || teclas["arrowright"]) dx++;
 
     const longitud = Math.hypot(dx, dz);
 
