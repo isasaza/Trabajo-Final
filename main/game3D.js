@@ -2321,7 +2321,7 @@ function actualizarJugador(dt) {
             dz * CONFIG.velocidadJugador * dt;
 
         // El personaje gira hacia donde camina (W = al frente, A/D = a los lados)
-        astro.rotation.y = Math.atan2(dx, dz)+Math.PI;
+        astro.rotation.y = Math.atan2(dx, dz);
 
         // Animacion de brazos y piernas
         const paso =
