@@ -895,6 +895,111 @@ async function cargarFarola() {
     }
 }
 
+// --- Personaje GLB (Astro = robot) --------------------------------
+const RUTA_PERSONAJE = "models/robot.glb";
+const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
+const ROTACION_ASTRO = 0;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
+
+let mixerAstro = null;
+let accionCaminar = null;
+let accionReposo = null;
+let astroMoviendo = null;
+
+async function cargarPersonaje() {
+    try {
+        const gltf = await new GLTFLoader().loadAsync(RUTA_PERSONAJE);
+        const modelo = gltf.scene;
+
+        const caja3 = new THREE.Box3().setFromObject(modelo);
+        const tam = caja3.getSize(new THREE.Vector3());
+        const centro = caja3.getCenter(new THREE.Vector3());
+
+        const escala = ALTO_ASTRO / tam.y;
+
+        modelo.scale.setScalar(escala);
+        modelo.position.set(
+            -centro.x * escala,
+            -caja3.min.y * escala,
+            -centro.z * escala
+        );
+
+        modelo.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+                o.frustumCulled = false;
+            }
+        });
+
+        const pivote = new THREE.Group();
+        pivote.rotation.y = ROTACION_ASTRO;
+        pivote.add(modelo);
+
+        // Se esconden las piezas de cajas y se usa el robot
+        for (const hijo of astro.children) {
+            hijo.visible = false;
+        }
+
+        astro.add(pivote);
+
+        // Animaciones del GLB (si trae)
+        const clips = gltf.animations;
+
+        console.log(
+            "Animaciones del robot:",
+            clips.map(c => c.name)
+        );
+
+        if (clips.length > 0) {
+            mixerAstro = new THREE.AnimationMixer(modelo);
+
+            const buscar = patron =>
+                clips.find(c => patron.test(c.name));
+
+            const clipCaminar =
+                buscar(/walk|camin/i) ||
+                buscar(/run|corr/i) ||
+                clips[0];
+
+            const clipReposo = buscar(/idle|rest|stand|repos|quiet/i);
+
+            accionCaminar = mixerAstro.clipAction(clipCaminar);
+
+            if (clipReposo && clipReposo !== clipCaminar) {
+                accionReposo = mixerAstro.clipAction(clipReposo);
+            }
+
+            astroMoviendo = null;
+            actualizarAnimacionAstro(false);
+        }
+
+    } catch (err) {
+        console.warn("No se pudo cargar " + RUTA_PERSONAJE, err);
+    }
+}
+
+function actualizarAnimacionAstro(moviendo) {
+    if (!mixerAstro || moviendo === astroMoviendo) return;
+
+    astroMoviendo = moviendo;
+
+    if (moviendo) {
+        accionCaminar.paused = false;
+        accionCaminar.reset().fadeIn(0.15).play();
+
+        if (accionReposo) accionReposo.fadeOut(0.15);
+
+    } else if (accionReposo) {
+        accionReposo.reset().fadeIn(0.15).play();
+        accionCaminar.fadeOut(0.15);
+
+    } else {
+        // Sin animacion de reposo: se queda congelado en el cuadro actual
+        accionCaminar.play();
+        accionCaminar.paused = true;
+    }
+}
+
 async function cargarCarros() {
     const resultados = await Promise.allSettled(
         RUTAS_CARROS.map(ruta => cargarModeloOBJ(ruta))
@@ -2136,7 +2241,14 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
-    // Gravedad y salto (el suelo sube si hay un tronco debajo)
+    // Animacion del robot (si tiene)
+    actualizarAnimacionAstro(longitud > 0);
+
+    if (mixerAstro) {
+        mixerAstro.update(dt);
+    }
+
+    // Gravedad y salto (el suelo sube si hay una plataforma debajo)
     const suelo = alturaSuelo(
         astro.position.x,
         astro.position.z
@@ -2512,7 +2624,8 @@ function animar() {
 // Primero se cargan los carros GLB y luego se arma el mapa
 Promise.all([
     cargarCarros(),
-    cargarFarola()
+    cargarFarola(),
+    cargarPersonaje()
 ]).finally(() => {
     limpiarProgreso();
     actualizarHUD();
