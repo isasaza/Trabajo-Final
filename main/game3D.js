@@ -389,6 +389,54 @@ cielo.add(
     )
 );
 
+// planetas
+
+function planeta(x, y, z, radio, color, conAnillos = false) {
+    const grupo = new THREE.Group();
+
+    const cuerpo = new THREE.Mesh(
+        new THREE.SphereGeometry(radio, 32, 24),
+        new THREE.MeshBasicMaterial({
+            color,
+            fog: false
+        })
+    );
+
+    grupo.add(cuerpo);
+
+    if (conAnillos) {
+        const aro = new THREE.Mesh(
+            new THREE.RingGeometry(
+                radio * 1.3,
+                radio * 1.8,
+                64
+            ),
+            new THREE.MeshBasicMaterial({
+                color: 0x9b8dff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.6,
+                depthWrite: false,
+                fog: false
+            })
+        );
+
+        aro.rotation.x = 0.9;
+        grupo.add(aro);
+    }
+
+    grupo.position.set(x, y, z);
+    cielo.add(grupo);
+
+    return grupo;
+}
+
+const planetaGrande = planeta(
+    -65, 55, 110, 18, 0x6651bd, true
+);
+
+planeta(90, 37, 95, 9, 0x24a7bd);
+
 // nebulosa 
 
 const canvasNebula = document.createElement("canvas");
@@ -2614,7 +2662,6 @@ function comprobarColisiones(dt) {
     const x = astro.position.x;
     const z = astro.position.z;
 
-}
 //colision con carros
 
     if (astro.position.y < 0.65) {
@@ -2715,8 +2762,7 @@ function comprobarColisiones(dt) {
 
         return;
     }
-
-
+}
 
 //camara
 

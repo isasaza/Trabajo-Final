@@ -35,7 +35,7 @@ Decisiones de diseño:
     
 Declaración de uso de IA
 
-Se utilizó asistencia de inteligencia artificial (Gemini) como herramienta de apoyo técnico para comprender e implementar la integración de los efectos de sonido y la música dinámica en JavaScript mediante el objeto Audio, vinculando cada pista a los distintos estados del juego (menú, partida, pausa, victoria y derrota).
+Se utilizó asistencia de inteligencia artificial (Gemini y Claude) como herramienta de apoyo técnico para comprender e implementar la integración de los efectos de sonido y la música dinámica en JavaScript mediante el objeto Audio, vinculando cada pista a los distintos estados del juego (menú, partida, pausa, victoria y derrota).
 
 Creditos:
 
