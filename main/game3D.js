@@ -941,10 +941,10 @@ function rutaKart(carpeta, archivo = carpeta.replace(/ /g, "_")) {
 const RUTAS_CARROS = [
     rutaKart("Black-Gold Kart"),
     rutaKart("Black Gray Kart"),
-    rutaKart("Marron Kart"),
+    // rutaKart("Marron Kart"),            // desactivado: su .mtl da 404 en GitHub Pages
     rutaKart("Green_Reptile"),
-    rutaKart("Multi-Red Kart"),
-    rutaKart("Midnight-Black Kart"),
+    // rutaKart("Multi-Red Kart"),         // desactivado: su .mtl da error en GitHub Pages
+    // rutaKart("Midnight-Black Kart"),    // desactivado: su .mtl da 404 en GitHub Pages
     rutaKart("Orange Purple Kart"),
     rutaKart("Pink Kart"),
     rutaKart("Red Kart"),
