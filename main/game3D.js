@@ -3,10 +3,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 
-// =====================================================
-// 01. CONFIGURACION GENERAL
-// =====================================================
-
+//Configuracion general del juego
 const CONFIG = {
     vidas: 3,
     tiempo: 240,
@@ -44,22 +41,15 @@ const TRAMOS = [
     }
 ];
 
-// -----------------------------------------------------
-// TILEMAP DEL NIVEL (mapa de texto)
-// -----------------------------------------------------
-// Cada linea del mapa es una fila del nivel (la linea 0 es z = 0 y se avanza
-// hacia adelante). Cada fila tiene 3 columnas: izquierda | centro | derecha.
-// Las columnas laterales solo existen donde el carril/rio se abre hacia
-// los costados; el "." significa "sin casilla".
-//
-// LEYENDA:
-//   S = suelo seguro (pasto)
-//   C = carretera (aparecen vehiculos)
-//   A = agua (hay que cruzar sobre plataformas)
-//   K = checkpoint (zona segura que guarda el avance)
-//   X = sierras giratorias (obstaculo)
-//   T = trofeo (meta final)
-//   . = vacio (sin casilla)
+//tilema
+
+//   S = suelo seguro
+//   C = carretera 
+//   A = agua 
+//   K = checkpoint 
+//   X = sierras giratorias
+//   T = trofeo 
+//   . = vacio
 const LEYENDA_TILES = {
     S: "suelo",
     C: "carretera",
@@ -149,9 +139,8 @@ const MAPA = [
     ".T.",   // z=73 trofeo
 ];
 
-// Agrupa filas consecutivas del mismo tipo (columna central) en "zonas"
-// [tipo, filaInicial, filaFinal]; asi los carriles, el rio y las sierras
-// se crean una sola vez por zona, igual que antes.
+// agrupa las filas del mismo tipo en zonas
+
 function zonasDeTramo(tramo) {
     const zonas = [];
 
@@ -191,8 +180,9 @@ let checkpointZ = 0;
 let invulnerable = 0;
 let velocidadVertical = 0;
 let relojMundo = 0;
-let boltActivo = false;        // Tab lo activa/desactiva; se apaga al morir o reiniciar
-let dobleSaltoUsado = false;   // 1 doble salto por cada salto desde el suelo
+let boltActivo = false;//tab activa y desactiva, se prende una luz cuando esta activo 
+// y se apaga si muere el personaje o reinicia
+let dobleSaltoUsado = false;   // se hace un doble salto por cada salto desde el suelo
 let trofeo = null;
 
 const teclas = {};
@@ -209,10 +199,7 @@ const naves = [];
 
 const reloj = new THREE.Clock();
 
-// =====================================================
-// 02. ESCENA Y RENDERIZADOR
-// =====================================================
-
+// escena y renderizador
 const escena = new THREE.Scene();
 
 escena.background = new THREE.Color(0x080b24);
@@ -243,9 +230,7 @@ renderer.toneMappingExposure = 1.4;
 document.getElementById("game-container")
     .appendChild(renderer.domElement);
 
-// =====================================================
-// 03. ILUMINACION
-// =====================================================
+//iluminacion
 
 escena.add(
     new THREE.HemisphereLight(
@@ -268,9 +253,7 @@ sol.shadow.camera.bottom = -35;
 
 escena.add(sol);
 
-// =====================================================
-// 04. MATERIALES Y GEOMETRIAS
-// =====================================================
+//material y geometry
 
 function mat(color, metal = 0.1, brillo = 0) {
     return new THREE.MeshStandardMaterial({
@@ -365,9 +348,7 @@ function azar(semilla) {
     return n - Math.floor(n);
 }
 
-// =====================================================
-// 05. CIELO GALACTICO Y ESTRELLAS
-// =====================================================
+//escena del cielo
 
 const cielo = new THREE.Group();
 escena.add(cielo);
@@ -408,59 +389,7 @@ cielo.add(
     )
 );
 
-// =====================================================
-// 06. PLANETAS
-// =====================================================
-
-function planeta(x, y, z, radio, color, conAnillos = false) {
-    const grupo = new THREE.Group();
-
-    const cuerpo = new THREE.Mesh(
-        new THREE.SphereGeometry(radio, 32, 24),
-        new THREE.MeshBasicMaterial({
-            color,
-            fog: false
-        })
-    );
-
-    grupo.add(cuerpo);
-
-    if (conAnillos) {
-        const aro = new THREE.Mesh(
-            new THREE.RingGeometry(
-                radio * 1.3,
-                radio * 1.8,
-                64
-            ),
-            new THREE.MeshBasicMaterial({
-                color: 0x9b8dff,
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.6,
-                depthWrite: false,
-                fog: false
-            })
-        );
-
-        aro.rotation.x = 0.9;
-        grupo.add(aro);
-    }
-
-    grupo.position.set(x, y, z);
-    cielo.add(grupo);
-
-    return grupo;
-}
-
-const planetaGrande = planeta(
-    -65, 55, 110, 18, 0x6651bd, true
-);
-
-planeta(90, 37, 95, 9, 0x24a7bd);
-
-// =====================================================
-// 07. NEBULOSAS PROCEDIMENTALES
-// =====================================================
+// nebulosa 
 
 const canvasNebula = document.createElement("canvas");
 
@@ -509,9 +438,7 @@ for (let i = 0; i < 14; i++) {
     cielo.add(sprite);
 }
 
-// =====================================================
-// 08. EDIFICIOS FUTURISTAS CON NEON
-// =====================================================
+// edificios
 
 function edificioNeon(x, z, altura, color, tipo = 0) {
     const grupo = new THREE.Group();
@@ -519,7 +446,7 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
 
     if (tipo === 1) {
 
-        // Torre de control circular
+        // torre circular 
         grupo.add(
             cilindro(
                 1.6, 2.2, altura,
@@ -558,7 +485,7 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
 
     } else if (tipo === 2) {
 
-        // Edificio escalonado
+        // edificio
         const partes = [
             [4.6, altura * 0.4, 4.1, 0],
             [3.5, altura * 0.35, 3.2, altura * 0.4],
@@ -589,7 +516,7 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
 
     } else {
 
-        // Rascacielos rectangular
+        // edificio rectangular
         const geo = new THREE.BoxGeometry(
             3.6, altura, 3.6
         );
@@ -639,9 +566,7 @@ function edificioNeon(x, z, altura, color, tipo = 0) {
     return grupo;
 }
 
-// =====================================================
-// 09. DISTRIBUCION DE LA CIUDAD
-// =====================================================
+//distribucion de ciudad
 
 function decorarTramo(grupo, tramo) {
     const colores = [
@@ -687,13 +612,13 @@ function decorarTramo(grupo, tramo) {
         for (let z = inicio; z <= fin; z += 3) {
             for (const x of [-8.3, 8.3]) {
 
-                // Farola GLB (si cargo); si no, la de cilindro y esfera
+                // lampara de calle, con glb
                 if (modeloFarola) {
                     const farola = modeloFarola.clone(true);
 
                     farola.position.set(x, 0, z);
 
-                    // El brazo de la farola mira hacia el centro de la calle
+                    
                     farola.rotation.y =
                         ROTACION_FAROLA + (x > 0 ? Math.PI : 0);
 
@@ -720,9 +645,7 @@ function decorarTramo(grupo, tramo) {
     }
 }
 
-// =====================================================
-// 10. NAVES ESPACIALES
-// =====================================================
+// decoraciones del cielo, naves espaciales
 
 function crearNave(i) {
     const grupo = new THREE.Group();
@@ -795,9 +718,7 @@ function actualizarNaves(dt) {
     }
 }
 
-// =====================================================
-// 11. ASTRO ORIGINAL
-// =====================================================
+// jugador (astro)
 
 const astro = new THREE.Group();
 
@@ -848,9 +769,7 @@ const piernaD = caja(
 astro.add(brazoI, brazoD, piernaI, piernaD);
 escena.add(astro);
 
-// =====================================================
-// 12. BOLT ORIGINAL
-// =====================================================
+// acompañante (bolt)
 
 const bolt = new THREE.Group();
 
@@ -868,15 +787,15 @@ bolt.add(
 bolt.position.set(1, 1.8, -0.6);
 escena.add(bolt);
 
-// Luz que se enciende cuando Bolt esta activo (Tab)
+// Luz que se enciende con tab
 const luzBolt = new THREE.PointLight(0x27edff, 0, 7);
 bolt.add(luzBolt);
 
-// --- Bolt GLB (drone) ---------------------------------------------
+// Bolt GLB (drone)
 const RUTA_BOLT = "models/drone.glb";
-const TAM_BOLT = 1.0;            // tamano del drone en el juego (lado mayor)
-const ROTACION_BOLT = 0;         // si mira de lado: Math.PI / 2, -Math.PI / 2 o Math.PI
-const TECLA_DOBLE_SALTO = " ";   // tecla del doble salto (ej: "arrowup" para usar una flecha)
+const TAM_BOLT = 1.0;            // tamano del drone 
+const ROTACION_BOLT = 0;         
+const TECLA_DOBLE_SALTO = " ";   // tecla del doble salto
 
 let mixerBolt = null;
 
@@ -916,7 +835,7 @@ async function cargarBolt() {
 
         bolt.add(pivote);
 
-        // Animaciones del drone (helices), si trae
+        // Animaciones del drone
         if (gltf.animations.length > 0) {
             mixerBolt = new THREE.AnimationMixer(modelo);
             gltf.animations.forEach(c => mixerBolt.clipAction(c).play());
@@ -926,14 +845,10 @@ async function cargarBolt() {
     }
 }
 
-// =====================================================
-// 13. VEHICULOS
-// =====================================================
+// carros 
 
-// --- Karts (OBJ + MTL + PNG) --------------------------------------
-// Estructura: models/<carpeta>/Full Car/<archivo>.obj
-// IMPORTANTE: las rutas deben ser IGUALES al nombre real (mayusculas incluidas).
-// Si el archivo se llama distinto a la carpeta con "_", ponlo como segundo valor.
+// Karts (OBJ + MTL + PNG) 
+
 function rutaKart(carpeta, archivo = carpeta.replace(/ /g, "_")) {
     return `models/${carpeta}/Full Car/${archivo}.obj`;
 }
@@ -941,10 +856,7 @@ function rutaKart(carpeta, archivo = carpeta.replace(/ /g, "_")) {
 const RUTAS_CARROS = [
     rutaKart("Black-Gold Kart"),
     rutaKart("Black Gray Kart"),
-    // rutaKart("Marron Kart"),            // desactivado: su .mtl da 404 en GitHub Pages
     rutaKart("Green_Reptile"),
-    // rutaKart("Multi-Red Kart"),         // desactivado: su .mtl da error en GitHub Pages
-    // rutaKart("Midnight-Black Kart"),    // desactivado: su .mtl da 404 en GitHub Pages
     rutaKart("Orange Purple Kart"),
     rutaKart("Pink Kart"),
     rutaKart("Red Kart"),
@@ -952,10 +864,10 @@ const RUTAS_CARROS = [
     rutaKart("Yellow 6 Wheeler")
 ];
 
-const LARGO_CARRO = 2.6;      // largo en el juego (la colision usa ~2.8)
-const ANCHO_CARRO = 1.2;      // ancho maximo: cabe dentro de su carril
-const ROTACION_EXTRA = 0;     // si salen de lado o de reversa: Math.PI, Math.PI / 2, -Math.PI / 2
-const ROTACION_X = 0;         // si salen acostados o boca abajo: -Math.PI / 2 o Math.PI / 2
+const LARGO_CARRO = 2.6;      // largo en el juego
+const ANCHO_CARRO = 1.2;      // ancho maximo para que quepa en el carril
+const ROTACION_EXTRA = 0;     
+const ROTACION_X = 0;         
 
 const modelosCarro = [];
 
@@ -970,7 +882,7 @@ async function cargarModeloOBJ(ruta) {
     const materiales = await mtlLoader.loadAsync(nombre + ".mtl");
     materiales.preload();
 
-    // Estilo voxel: texturas sin suavizar para que los colores se vean nitidos
+    //texturas sin suavizar para colores  nitidos
     for (const m of Object.values(materiales.materials)) {
         if (m.map) {
             m.map.magFilter = THREE.NearestFilter;
@@ -993,7 +905,7 @@ function normalizarModelo(modelo, largoDeseado) {
     const tam = caja3.getSize(new THREE.Vector3());
     const centro = caja3.getCenter(new THREE.Vector3());
 
-    // Escala uniforme: respeta el largo y no pasa del ancho del carril
+    //respeta el largo y no pasa del ancho del carril
     const escala = Math.min(
         largoDeseado / Math.max(tam.x, tam.z),
         ANCHO_CARRO / Math.min(tam.x, tam.z)
@@ -1018,10 +930,10 @@ function normalizarModelo(modelo, largoDeseado) {
     return pivote;
 }
 
-// --- Farola GLB ---------------------------------------------------
+//farolita en glb
 const RUTA_FAROLA = "models/street_lamp.glb";
-const ALTO_FAROLA = 3.2;      // altura de la farola en el juego
-const ROTACION_FAROLA = 0;    // si el brazo/luz mira hacia afuera: Math.PI; de lado: Math.PI / 2
+const ALTO_FAROLA = 3.2;      // altura de la farola
+const ROTACION_FAROLA = 0;    
 
 let modeloFarola = null;
 
@@ -1059,10 +971,10 @@ async function cargarFarola() {
     }
 }
 
-// --- Personaje GLB (Astro = robot) --------------------------------
+// jugador astro glb 
 const RUTA_PERSONAJE = "models/robot.glb";
-const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
-const ROTACION_ASTRO = -Math.PI / 2;        // si mira de lado o de espaldas: Math.PI / 2, -Math.PI / 2 o Math.PI
+const ALTO_ASTRO = 2.2;          // altura 
+const ROTACION_ASTRO = -Math.PI / 2;        
 
 let mixerAstro = null;
 let accionCaminar = null;
@@ -1074,13 +986,13 @@ let baseRobotY = 0;
 let faseCaminar = 0;
 let fuerzaCaminar = 0;
 
-const partesRobot = [];   // piernas y brazos encontrados en el GLB (si tiene)
+const partesRobot = [];   // piernas y brazos del glb
 
 const EJE_X = new THREE.Vector3(1, 0, 0);
 const EJE_Z = new THREE.Vector3(0, 0, 1);
 const qTemp = new THREE.Quaternion();
 
-// Busca piernas/pies y brazos por nombre y prepara su balanceo
+// balanceo de piernas y brazos, no logro hacer animacion de caminar
 function buscarPartesRobot(modelo) {
     modelo.updateWorldMatrix(true, true);
 
@@ -1130,7 +1042,7 @@ function buscarPartesRobot(modelo) {
         return;
     }
 
-    // Eje lateral del modelo (donde se separan izquierda y derecha)
+    // Eje lateral del modelo donde se separan izquierda y derecha
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
     let mediaX = 0, mediaZ = 0;
@@ -1145,7 +1057,7 @@ function buscarPartesRobot(modelo) {
     }
 
     const lateralEsX = (maxX - minX) >= (maxZ - minZ);
-    const eje = lateralEsX ? EJE_X : EJE_Z;   // eje de balanceo (adelante-atras)
+    const eje = lateralEsX ? EJE_X : EJE_Z;   // eje de balanceo adelante-atras
 
     // Eje de balanceo expresado en el espacio del padre de cada pieza
     const qModelo = new THREE.Quaternion();
@@ -1178,7 +1090,7 @@ function buscarPartesRobot(modelo) {
     );
 }
 
-// Respaldo si el GLB no trae animaciones: pasos, balanceo y saltito
+//  pasos, balanceo y saltito, respalda si el glb que cargue no contine animaciones
 function animarCaminarRobot(moviendo, dt) {
     if (!modeloRobot || mixerAstro) return;
 
@@ -1249,7 +1161,7 @@ async function cargarPersonaje() {
         modeloRobot = modelo;
         baseRobotY = modelo.position.y;
 
-        // Animaciones del GLB (si trae)
+        // Animaciones 
         const clips = gltf.animations;
 
         console.log(
@@ -1280,7 +1192,7 @@ async function cargarPersonaje() {
             actualizarAnimacionAstro(false);
 
         } else {
-            // Sin animaciones: se mueven piernas/brazos por nombre
+            // Sin animaciones se mueven piernas/brazos por nombre
             buscarPartesRobot(modelo);
         }
 
@@ -1418,7 +1330,7 @@ function crearCarriles(grupo, zona, tramo) {
     const filas = zona[2] - zona[1] + 1;
     const ancho = filas / CARRILES_POR_CALLE;
 
-    // Lineas: bordes continuos y divisiones de carril discontinuas
+    //  bordes continuos y divisiones de carril discontinuas
     for (let k = 0; k <= CARRILES_POR_CALLE; k++) {
         const zl = borde + k * ancho;
         const esBorde = k === 0 || k === CARRILES_POR_CALLE;
@@ -1465,18 +1377,16 @@ function crearCarriles(grupo, zona, tramo) {
     }
 }
 
-// =====================================================
-// 14. PLATAFORMAS GALACTICAS (antes troncos)
-// =====================================================
+// plataformas en el agua 
 
 const ANCHO_PLATAFORMA = 0.9;
 const GROSOR_PLATAFORMA = 0.22;
-const LARGO_TRONCO = 4.2;    // la colision usa este largo (no cambiar)
+const LARGO_TRONCO = 4.2;    // la colision usa este largo
 
-// Altura de la parte de arriba de la plataforma (donde se para el personaje)
+// Altura de la parte de arriba de la plataforma
 const ALTURA_TRONCO = 0.3;
 
-// Tronco que esta debajo de la posicion (x, z), o null
+// Tronco que esta debajo de la posicion
 function buscarTronco(x, z) {
     for (const t of troncos) {
         if (
@@ -1490,7 +1400,7 @@ function buscarTronco(x, z) {
     return null;
 }
 
-// Altura del piso en ese punto: 0 normalmente, o la del tronco en el rio
+// Altura del piso en ese punto
 function alturaSuelo(x, z) {
     if (filasAgua.has(Math.round(z)) && buscarTronco(x, z)) {
         return ALTURA_TRONCO;
@@ -1505,7 +1415,7 @@ const MAT_PLATAFORMA_TOPE = mat(0x2a2f66, 0.6, 0.15);
 function crearTronco(grupoTramo, z, x, velocidad) {
     const grupo = new THREE.Group();
 
-    // Cuerpo flotante (la parte de arriba queda en ALTURA_TRONCO)
+    // Cuerpo flotante 
     grupo.add(
         caja(
             LARGO_TRONCO, GROSOR_PLATAFORMA, ANCHO_PLATAFORMA,
@@ -1514,7 +1424,7 @@ function crearTronco(grupoTramo, z, x, velocidad) {
         )
     );
 
-    // Tapa superior ligeramente mas clara
+    // Tapa superior clara
     grupo.add(
         caja(
             LARGO_TRONCO - 0.3, 0.04, ANCHO_PLATAFORMA - 0.2,
@@ -1523,7 +1433,7 @@ function crearTronco(grupoTramo, z, x, velocidad) {
         )
     );
 
-    // Bordes de neon (violeta arriba, cian en los lados cortos)
+    // Bordes de neon 
     for (const lado of [-1, 1]) {
         grupo.add(
             caja(
@@ -1554,7 +1464,7 @@ function crearTronco(grupoTramo, z, x, velocidad) {
         );
     }
 
-    // Propulsores brillantes debajo
+    // Propulsores
     for (const px of [-1.2, 1.2]) {
         const prop = cilindro(
             0.2, 0.1, 0.12,
@@ -1620,9 +1530,7 @@ function crearRio(grupo, zona, tramo) {
     }
 }
 
-// =====================================================
-// 15. SIERRAS
-// =====================================================
+//sierras
 
 // Textura de la sierra (carpeta img). Se pega en las dos caras del disco.
 const texturaSierra = new THREE.TextureLoader().load(
