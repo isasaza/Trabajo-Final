@@ -912,36 +912,101 @@ let fuerzaCaminar = 0;
 
 const partesRobot = [];   // piernas y brazos encontrados en el GLB (si tiene)
 
-// Busca piernas/pies y brazos por nombre para moverlos al caminar
+const EJE_X = new THREE.Vector3(1, 0, 0);
+const EJE_Z = new THREE.Vector3(0, 0, 1);
+const qTemp = new THREE.Quaternion();
+
+// Busca piernas/pies y brazos por nombre y prepara su balanceo
 function buscarPartesRobot(modelo) {
     modelo.updateWorldMatrix(true, true);
 
-    const centroX = new THREE.Box3()
-        .setFromObject(modelo)
-        .getCenter(new THREE.Vector3()).x;
-
+    const encontradas = [];
     const v = new THREE.Vector3();
 
     modelo.traverse(o => {
+        if (o === modelo) return;
+
         const n = o.name || "";
 
-        const esPierna = /leg|foot|thigh|shin|pierna|pie\b/i.test(n);
-        const esBrazo = /arm|hand|shoulder|brazo|mano/i.test(n);
+        if (/armature/i.test(n)) return;
+
+        const esPierna = /leg|thigh|calf|shin|foot|feet|pierna|muslo|\bpie\b/i.test(n);
+        const esBrazo = /arm|shoulder|hand|brazo|hombro|mano/i.test(n);
 
         if (!esPierna && !esBrazo) return;
 
-        // Si el padre ya se mueve, no se mueve dos veces
-        if (partesRobot.some(p => p.obj === o.parent)) return;
+        // Si algun ancestro ya se mueve, esta pieza ya va con el
+        let ancestro = o.parent;
+
+        while (ancestro) {
+            if (encontradas.some(p => p.obj === ancestro)) return;
+            ancestro = ancestro.parent;
+        }
 
         o.getWorldPosition(v);
+        modelo.worldToLocal(v);
 
-        partesRobot.push({
+        encontradas.push({
             obj: o,
-            base: o.rotation.x,
-            // lados opuestos al reves; brazos opuestos a las piernas
-            signo: (v.x < centroX ? -1 : 1) * (esBrazo ? -1 : 1)
+            esBrazo,
+            pos: v.clone()
         });
     });
+
+    if (encontradas.length === 0) {
+        console.warn(
+            "No encontre piernas ni brazos por nombre. " +
+            "Nombres del modelo:",
+            (() => {
+                const lista = [];
+                modelo.traverse(o => o.name && lista.push(o.name));
+                return lista;
+            })()
+        );
+        return;
+    }
+
+    // Eje lateral del modelo (donde se separan izquierda y derecha)
+    let minX = Infinity, maxX = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    let mediaX = 0, mediaZ = 0;
+
+    for (const e of encontradas) {
+        minX = Math.min(minX, e.pos.x);
+        maxX = Math.max(maxX, e.pos.x);
+        minZ = Math.min(minZ, e.pos.z);
+        maxZ = Math.max(maxZ, e.pos.z);
+        mediaX += e.pos.x / encontradas.length;
+        mediaZ += e.pos.z / encontradas.length;
+    }
+
+    const lateralEsX = (maxX - minX) >= (maxZ - minZ);
+    const eje = lateralEsX ? EJE_X : EJE_Z;   // eje de balanceo (adelante-atras)
+
+    // Eje de balanceo expresado en el espacio del padre de cada pieza
+    const qModelo = new THREE.Quaternion();
+    modelo.getWorldQuaternion(qModelo);
+
+    for (const e of encontradas) {
+        const qPadre = new THREE.Quaternion();
+        e.obj.parent.getWorldQuaternion(qPadre);
+
+        const lado = lateralEsX
+            ? (e.pos.x >= mediaX ? 1 : -1)
+            : (e.pos.z >= mediaZ ? 1 : -1);
+
+        partesRobot.push({
+            obj: e.obj,
+            base: e.obj.quaternion.clone(),
+            eje: eje.clone()
+                .applyQuaternion(qModelo)
+                .applyQuaternion(qPadre.invert())
+                .normalize(),
+            // lados opuestos al reves; brazos al reves que las piernas
+            signo: lado * (e.esBrazo ? -1 : 1),
+            amplitud: e.esBrazo ? 0.6 : 0.8
+        });
+    }
 
     console.log(
         "Partes del robot que se mueven:",
@@ -959,18 +1024,24 @@ function animarCaminarRobot(moviendo, dt) {
         1 - Math.exp(-12 * dt)
     );
 
-    if (moviendo) faseCaminar += dt * 10;
+    if (moviendo) faseCaminar += dt * 11;
 
     const seno = Math.sin(faseCaminar);
 
     for (const p of partesRobot) {
-        p.obj.rotation.x = p.base + p.signo * seno * 0.7 * fuerzaCaminar;
+        qTemp.setFromAxisAngle(
+            p.eje,
+            p.signo * seno * p.amplitud * fuerzaCaminar
+        );
+
+        p.obj.quaternion.copy(qTemp).multiply(p.base);
     }
 
+    // Saltito, balanceo y leve inclinacion hacia adelante
     modeloRobot.position.y =
-        baseRobotY + Math.abs(seno) * 0.08 * fuerzaCaminar;
+        baseRobotY + Math.abs(seno) * 0.07 * fuerzaCaminar;
 
-    modeloRobot.rotation.z = seno * 0.05 * fuerzaCaminar;
+    modeloRobot.rotation.z = seno * 0.04 * fuerzaCaminar;
 }
 
 async function cargarPersonaje() {
@@ -1973,7 +2044,20 @@ const OPCIONES_ROTACION = [
     [-Math.PI / 2, "-Math.PI / 2"]
 ];
 
-let indiceRotacion = 0;
+let indiceRotacion = 1;   // empieza en Math.PI / 2 (igual que ROTACION_ASTRO)
+
+// Aviso corto en pantalla al calibrar con la tecla R
+const avisoRotacion = document.createElement("div");
+
+avisoRotacion.style.cssText =
+    "position:fixed;left:50%;top:70px;transform:translateX(-50%);" +
+    "padding:8px 16px;background:rgba(10,14,40,.85);color:#9ff;" +
+    "font:600 15px monospace;border:1px solid #27edff;" +
+    "border-radius:8px;z-index:50;display:none;pointer-events:none";
+
+document.body.appendChild(avisoRotacion);
+
+let temporizadorAviso = null;
 
 window.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
@@ -2005,10 +2089,19 @@ window.addEventListener("keydown", e => {
 
         pivoteAstro.rotation.y = OPCIONES_ROTACION[indiceRotacion][0];
 
-        console.log(
-            "ROTACION_ASTRO =",
-            OPCIONES_ROTACION[indiceRotacion][1]
-        );
+        const texto =
+            "ROTACION_ASTRO = " + OPCIONES_ROTACION[indiceRotacion][1];
+
+        console.log(texto);
+
+        avisoRotacion.textContent = texto + "   (R para cambiar)";
+        avisoRotacion.style.display = "block";
+
+        clearTimeout(temporizadorAviso);
+
+        temporizadorAviso = setTimeout(() => {
+            avisoRotacion.style.display = "none";
+        }, 3000);
     }
 
     teclas[k] = true;
@@ -2321,7 +2414,8 @@ function actualizarJugador(dt) {
             dz * CONFIG.velocidadJugador * dt;
 
         // El personaje gira hacia donde camina (W = al frente, A/D = a los lados)
-        astro.rotation.y = Math.atan2(dx, dz) + Math.PI / 2;
+        // El personaje NO gira con las teclas: siempre mira al frente
+        astro.rotation.y = 0;
 
         // Animacion de brazos y piernas
         const paso =
