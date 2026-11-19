@@ -1909,7 +1909,7 @@ const UI = {
     puntos: document.getElementById("puntos"),
     metas: document.getElementById("metas"),
     tiempo: document.getElementById("tiempo"),
-    camara: document.getElementById("camaraModo"),
+    bolt: document.getElementById("boltModo"),
     overlay: document.getElementById("overlay"),
     pausa: document.getElementById("pausa"),
     titulo: document.getElementById("titulo"),
@@ -1936,10 +1936,10 @@ function actualizarHUD() {
 
     UI.tiempo.textContent = Math.ceil(tiempo);
 
-    UI.camara.textContent =
-        boltActivo
-            ? "Bolt ACTIVO (doble salto)"
-            : "Bolt apagado (Tab)";
+    // El elemento puede no existir en el HTML: no debe romper el juego
+    if (UI.bolt) {
+        UI.bolt.textContent = boltActivo ? "ACTIVO" : "Apagado";
+    }
 }
 
 function cambiarEstado(nuevo) {
