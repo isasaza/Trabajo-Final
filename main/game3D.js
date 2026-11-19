@@ -2223,6 +2223,8 @@ function actualizarJugador(dt) {
         astro.position.z +=
             dz * CONFIG.velocidadJugador * dt;
 
+            astro.rotation.y = Math.atan2(dx, dz);
+
         // El robot siempre mira al frente: las teclas solo lo desplazan, no lo giran
 
         // Animacion de brazos y piernas
