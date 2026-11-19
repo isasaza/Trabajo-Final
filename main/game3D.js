@@ -898,7 +898,7 @@ async function cargarFarola() {
 // --- Personaje GLB (Astro = robot) --------------------------------
 const RUTA_PERSONAJE = "models/robot.glb";
 const ALTO_ASTRO = 2.2;          // altura en el juego (el de cajas media ~2.2)
-const ROTACION_ASTRO = Math.PI / 2; //-Math.PI / 2 o Math.PI
+const ROTACION_ASTRO = -Math.PI / 2; 
 
 let mixerAstro = null;
 let accionCaminar = null;
