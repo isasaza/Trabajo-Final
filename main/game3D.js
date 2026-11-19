@@ -25,7 +25,7 @@ const TRAMOS = [
         inicio: 0,
         fin: 23,
         carros: 2.5,
-        plataformas: 1.4,
+        troncos: 1.4,
         zonas: [
             ["suelo", 0, 3],
             ["carretera", 4, 8],
@@ -40,7 +40,7 @@ const TRAMOS = [
         inicio: 24,
         fin: 47,
         carros: 4.2,
-        plataformas: 1.9,
+        troncos: 1.9,
         zonas: [
             ["suelo", 24, 26],
             ["carretera", 27, 31],
@@ -55,7 +55,7 @@ const TRAMOS = [
         inicio: 48,
         fin: 73,
         carros: 6,
-        plataformas: 2.5,
+        troncos: 2.5,
         zonas: [
             ["suelo", 48, 50],
             ["carretera", 51, 55],
@@ -95,7 +95,7 @@ const filasAgua = new Set();
 const gruposTramo = new Map();
 
 const vehiculos = [];
-const plataformas = [];
+const troncos = [];
 const sierras = [];
 const gemas = [];
 const particulas = [];
@@ -789,6 +789,7 @@ const RUTAS_CARROS = [
 ];
 
 const LARGO_CARRO = 2.6;      // largo en el juego (la colision usa ~2.8)
+const ANCHO_CARRO = 1.2;      // ancho maximo: cabe dentro de su carril
 const ROTACION_EXTRA = 0;     // si salen de lado o de reversa: Math.PI, Math.PI / 2, -Math.PI / 2
 const ROTACION_X = 0;         // si salen acostados o boca abajo: -Math.PI / 2 o Math.PI / 2
 
@@ -828,7 +829,11 @@ function normalizarModelo(modelo, largoDeseado) {
     const tam = caja3.getSize(new THREE.Vector3());
     const centro = caja3.getCenter(new THREE.Vector3());
 
-    const escala = largoDeseado / Math.max(tam.x, tam.z);
+    // Escala uniforme: respeta el largo y no pasa del ancho del carril
+    const escala = Math.min(
+        largoDeseado / Math.max(tam.x, tam.z),
+        ANCHO_CARRO / Math.min(tam.x, tam.z)
+    );
 
     modelo.scale.setScalar(escala);
     modelo.position.set(
@@ -950,7 +955,7 @@ function crearVehiculo(
 
     grupo.add(
         caja(
-            2.2, 0.55, 0.9,
+            2.2, 0.55, 0.8,
             pintura,
             0, 0.55, 0
         )
@@ -958,7 +963,7 @@ function crearVehiculo(
 
     grupo.add(
         caja(
-            1.2, 0.38, 0.75,
+            1.2, 0.38, 0.65,
             M.oscuro,
             0, 1.0, 0
         )
@@ -968,14 +973,14 @@ function crearVehiculo(
         grupo.add(
             esfera(
                 0.17, M.cian,
-                lado * 0.85, 0.23, 0.44
+                lado * 0.85, 0.23, 0.38
             )
         );
 
         grupo.add(
             esfera(
                 0.17, M.cian,
-                lado * 0.85, 0.23, -0.44
+                lado * 0.85, 0.23, -0.38
             )
         );
     }
@@ -989,10 +994,45 @@ function crearVehiculo(
     });
 }
 
-function crearCarriles(grupo, zona, tramo) {
-    let i = 0;
+const CARRILES_POR_CALLE = 3;
 
-    for (let z = zona[1]; z <= zona[2]; z += 2) {
+function crearCarriles(grupo, zona, tramo) {
+    // La calle ocupa de (inicio - 0.5) a (fin + 0.5), repartida en carriles iguales
+    const borde = zona[1] - 0.5;
+    const filas = zona[2] - zona[1] + 1;
+    const ancho = filas / CARRILES_POR_CALLE;
+
+    // Lineas: bordes continuos y divisiones de carril discontinuas
+    for (let k = 0; k <= CARRILES_POR_CALLE; k++) {
+        const zl = borde + k * ancho;
+        const esBorde = k === 0 || k === CARRILES_POR_CALLE;
+
+        if (esBorde) {
+            grupo.add(
+                caja(
+                    44, 0.025, 0.07,
+                    M.cian,
+                    0, -0.035, zl
+                )
+            );
+            continue;
+        }
+
+        for (let x = -21; x <= 21; x += 3) {
+            grupo.add(
+                caja(
+                    1.4, 0.025, 0.07,
+                    M.casco,
+                    x, -0.035, zl
+                )
+            );
+        }
+    }
+
+    // Cada carril tiene su direccion, su velocidad y sus carros
+    for (let i = 0; i < CARRILES_POR_CALLE; i++) {
+        const zc = borde + (i + 0.5) * ancho;
+
         const vel =
             (i % 2 === 0 ? 1 : -1) *
             (tramo.carros + (i % 3) * 0.4);
@@ -1000,175 +1040,157 @@ function crearCarriles(grupo, zona, tramo) {
         for (let j = 0; j < 2; j++) {
             crearVehiculo(
                 grupo,
-                z,
+                zc,
                 -7 + j * 12,
                 vel,
                 i + j
             );
         }
-
-        i++;
     }
 }
 
 // =====================================================
-// 14. TRONCOS
+// 14. PLATAFORMAS GALACTICAS (antes troncos)
 // =====================================================
 
-// =====================================================
-// PLATAFORMAS GALACTICAS (suben y bajan sobre el rio)
-// =====================================================
-
-const LARGO_PLATAFORMA = 2.6;
 const ANCHO_PLATAFORMA = 0.9;
-const ALTURA_MAX = 0.5;          // parte de arriba cuando esta elevada
-const ALTURA_MIN = -0.45;        // sumergida bajo el agua
-const UMBRAL_PLATAFORMA = 0.0;   // por debajo de esta altura ya no sostiene
-const SEPARACION_PLATAFORMAS = 5.2;
+const GROSOR_PLATAFORMA = 0.22;
+const LARGO_TRONCO = 3.6;    // la colision usa este largo (no cambiar)
 
-const COLOR_PLATAFORMA_ACTIVA = new THREE.Color(0x27edff);
-const COLOR_PLATAFORMA_ALERTA = new THREE.Color(0xff4567);
+// Altura de la parte de arriba de la plataforma (donde se para el personaje)
+const ALTURA_TRONCO = 0.3;
 
-// Plataforma que sostiene en la posicion (x, z), o null
-function buscarPlataforma(x, z) {
-    for (const p of plataformas) {
+// Tronco que esta debajo de la posicion (x, z), o null
+function buscarTronco(x, z) {
+    for (const t of troncos) {
         if (
-            p.mesh.position.y >= UMBRAL_PLATAFORMA &&
-            Math.abs(x - p.mesh.position.x) < LARGO_PLATAFORMA / 2 &&
-            Math.abs(z - p.mesh.position.z) < 0.55
+            Math.abs(x - t.mesh.position.x) < LARGO_TRONCO / 2 - 0.15 &&
+            Math.abs(z - t.mesh.position.z) < 0.55
         ) {
-            return p;
+            return t;
         }
     }
 
     return null;
 }
 
-// Altura del piso en ese punto: 0 normalmente, o la de la plataforma en el rio
+// Altura del piso en ese punto: 0 normalmente, o la del tronco en el rio
 function alturaSuelo(x, z) {
-    if (filasAgua.has(Math.round(z))) {
-        const p = buscarPlataforma(x, z);
-
-        if (p) {
-            return p.mesh.position.y;
-        }
+    if (filasAgua.has(Math.round(z)) && buscarTronco(x, z)) {
+        return ALTURA_TRONCO;
     }
 
     return 0;
 }
 
-function crearPlataforma(grupoTramo, z, x, periodo, fase) {
+const MAT_PLATAFORMA = mat(0x1b1f45, 0.75);
+const MAT_PLATAFORMA_TOPE = mat(0x2a2f66, 0.6, 0.15);
+
+function crearTronco(grupoTramo, z, x, velocidad) {
     const grupo = new THREE.Group();
 
-    // Casco oscuro
+    // Cuerpo flotante (la parte de arriba queda en ALTURA_TRONCO)
     grupo.add(
         caja(
-            LARGO_PLATAFORMA, 0.3, ANCHO_PLATAFORMA,
-            M.oscuro,
-            0, -0.17, 0
+            LARGO_TRONCO, GROSOR_PLATAFORMA, ANCHO_PLATAFORMA,
+            MAT_PLATAFORMA,
+            0, ALTURA_TRONCO - GROSOR_PLATAFORMA / 2, 0
         )
     );
 
-    // Placa de energia (cian; se pone roja cuando esta por hundirse)
-    const material = mat(0x27edff, 0.2, 1.4);
-
-    const placa = caja(
-        LARGO_PLATAFORMA - 0.3, 0.05, ANCHO_PLATAFORMA - 0.25,
-        material,
-        0, -0.01, 0
+    // Tapa superior ligeramente mas clara
+    grupo.add(
+        caja(
+            LARGO_TRONCO - 0.3, 0.04, ANCHO_PLATAFORMA - 0.2,
+            MAT_PLATAFORMA_TOPE,
+            0, ALTURA_TRONCO - 0.02, 0
+        )
     );
 
-    placa.castShadow = false;
-    grupo.add(placa);
-
-    // Bordes de neon violeta
-    const bordes = bordeNeon(
-        new THREE.BoxGeometry(
-            LARGO_PLATAFORMA, 0.3, ANCHO_PLATAFORMA
-        ),
-        0x9c6dff
-    );
-
-    bordes.position.y = -0.17;
-    grupo.add(bordes);
-
-    // Propulsores rosas debajo
+    // Bordes de neon (violeta arriba, cian en los lados cortos)
     for (const lado of [-1, 1]) {
         grupo.add(
-            esfera(
-                0.15, M.rosa,
-                lado * (LARGO_PLATAFORMA / 2 - 0.3), -0.38, 0
+            caja(
+                LARGO_TRONCO, 0.05, 0.06,
+                M.violeta,
+                0, ALTURA_TRONCO - 0.02,
+                lado * (ANCHO_PLATAFORMA / 2)
+            )
+        );
+
+        grupo.add(
+            caja(
+                0.07, 0.05, ANCHO_PLATAFORMA,
+                M.cian,
+                lado * (LARGO_TRONCO / 2),
+                ALTURA_TRONCO - 0.02, 0
             )
         );
     }
 
-    const centro = (ALTURA_MAX + ALTURA_MIN) / 2;
-    const amplitud = (ALTURA_MAX - ALTURA_MIN) / 2;
+    // Luces centrales
+    for (const px of [-0.9, 0, 0.9]) {
+        grupo.add(
+            esfera(
+                0.07, M.rosa,
+                px, ALTURA_TRONCO + 0.01, 0
+            )
+        );
+    }
 
-    grupo.position.set(
-        x,
-        centro + amplitud * Math.sin(fase),
-        z
+    // Propulsores brillantes debajo
+    for (const px of [-1.2, 1.2]) {
+        const prop = cilindro(
+            0.2, 0.1, 0.12,
+            M.cian,
+            px, ALTURA_TRONCO - GROSOR_PLATAFORMA - 0.04, 0
+        );
+
+        grupo.add(prop);
+    }
+
+    // Resplandor bajo la plataforma
+    grupo.add(
+        new THREE.Mesh(
+            new THREE.PlaneGeometry(LARGO_TRONCO + 0.8, 1.6),
+            new THREE.MeshBasicMaterial({
+                map: texturaResplandor,
+                color: 0x9c6dff,
+                transparent: true,
+                opacity: 0.55,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                fog: false,
+                toneMapped: false
+            })
+        )
     );
 
+    const brillo = grupo.children[grupo.children.length - 1];
+    brillo.rotation.x = -Math.PI / 2;
+    brillo.position.y = -0.03;
+
+    grupo.position.set(x, 0, z);
     grupoTramo.add(grupo);
 
-    plataformas.push({
+    troncos.push({
         mesh: grupo,
-        velocidad: 0,
-        material,
-        omega: (Math.PI * 2) / periodo,
-        fase
+        velocidad
     });
 }
 
-function actualizarPlataformas() {
-    const centro = (ALTURA_MAX + ALTURA_MIN) / 2;
-    const amplitud = (ALTURA_MAX - ALTURA_MIN) / 2;
-
-    for (const p of plataformas) {
-        p.mesh.position.y =
-            centro +
-            amplitud * Math.sin(relojMundo * p.omega + p.fase);
-
-        // Aviso visual: roja cuando esta bajando y ya casi no sostiene
-        const alerta = THREE.MathUtils.clamp(
-            (0.25 - p.mesh.position.y) / 0.25,
-            0,
-            1
-        );
-
-        p.material.color.lerpColors(
-            COLOR_PLATAFORMA_ACTIVA,
-            COLOR_PLATAFORMA_ALERTA,
-            alerta
-        );
-
-        p.material.emissive.copy(p.material.color);
-    }
-}
-
 function crearRio(grupo, zona, tramo) {
-    // Cada nivel va mas rapido (valor del tramo = rapidez)
-    const periodo = 7 / tramo.plataformas;
-
     for (let z = zona[1]; z <= zona[2]; z++) {
-        const fila = z - zona[1];
+        const vel =
+            ((z - zona[1]) % 2 === 0 ? 1 : -1) *
+            tramo.troncos;
 
-        // Las filas alternas se desplazan media separacion
-        const desfase = (fila % 2) * (SEPARACION_PLATAFORMAS / 2);
-
-        for (let j = -3; j <= 3; j++) {
-            const x = j * SEPARACION_PLATAFORMAS + desfase;
-
-            if (Math.abs(x) > 11) continue;
-
-            crearPlataforma(
+        for (let j = 0; j < 3; j++) {
+            crearTronco(
                 grupo,
                 z,
-                x,
-                periodo,
-                fila * 1.3 + j * 2.1
+                -10 + j * 10,
+                vel
             );
         }
     }
@@ -1235,31 +1257,6 @@ function crearSierras(grupo, zona) {
 // 16. GEMAS Y TROFEO
 // =====================================================
 
-function crearGema(grupo, numero, z) {
-    const plataforma = caja(
-        2.7, 0.25, 2.3,
-        M.metal,
-        0, 0.05, z
-    );
-
-    grupo.add(plataforma);
-
-    const cristal = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.68),
-        M.cian
-    );
-
-    cristal.position.set(0, 1.35, z);
-    grupo.add(cristal);
-
-    gemas.push({
-        numero,
-        cristal,
-        z,
-        recogida: false
-    });
-}
-
 // Resplandor: un circulo difuso (centro claro, borde transparente)
 function crearTexturaResplandor() {
     const c = document.createElement("canvas");
@@ -1281,6 +1278,127 @@ function crearTexturaResplandor() {
 }
 
 const texturaResplandor = crearTexturaResplandor();
+
+// =====================================================
+// GEMAS (imagen img/gema.jpg con resplandor morado)
+// =====================================================
+
+const ALTO_GEMA = 1.5;            // tamano de la imagen en el juego
+const ALTURA_GEMA = 1.35;         // a que altura flota
+const COLOR_GEMA = 0x9c3dff;      // resplandor morado
+
+// La imagen es .jpg (sin transparencia): se recorta en circulo con borde suave
+const canvasGema = document.createElement("canvas");
+canvasGema.width = 256;
+canvasGema.height = 256;
+
+const texturaGema = new THREE.CanvasTexture(canvasGema);
+texturaGema.colorSpace = THREE.SRGBColorSpace;
+
+const imgGema = new Image();
+
+imgGema.onload = () => {
+    const g = canvasGema.getContext("2d");
+
+    g.clearRect(0, 0, 256, 256);
+
+    // Imagen cubriendo el cuadrado
+    g.drawImage(imgGema, 0, 0, 256, 256);
+
+    // Mascara circular con borde difuso
+    g.globalCompositeOperation = "destination-in";
+
+    const mascara = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    mascara.addColorStop(0, "rgba(0,0,0,1)");
+    mascara.addColorStop(0.78, "rgba(0,0,0,1)");
+    mascara.addColorStop(1, "rgba(0,0,0,0)");
+
+    g.fillStyle = mascara;
+    g.fillRect(0, 0, 256, 256);
+
+    g.globalCompositeOperation = "source-over";
+
+    texturaGema.needsUpdate = true;
+};
+
+imgGema.onerror = () => {
+    console.warn("No se pudo cargar img/gema.jpg");
+};
+
+imgGema.src = "img/gema.jpg";
+
+function crearGema(grupo, numero, z) {
+    // Base de la plataforma
+    grupo.add(
+        caja(
+            2.7, 0.25, 2.3,
+            M.metal,
+            0, 0.05, z
+        )
+    );
+
+    // Imagen de la gema + resplandor (siempre miran a la camara)
+    const cristal = new THREE.Group();
+
+    const imagen = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+            map: texturaGema,
+            transparent: true,
+            fog: false,
+            toneMapped: false
+        })
+    );
+
+    imagen.scale.set(ALTO_GEMA, ALTO_GEMA, 1);
+
+    const halo = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+            map: texturaResplandor,
+            color: COLOR_GEMA,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            fog: false,
+            toneMapped: false
+        })
+    );
+
+    halo.scale.set(4, 4, 1);
+    halo.position.z = -0.01;
+
+    cristal.add(halo, imagen);
+    cristal.position.set(0, ALTURA_GEMA, z);
+    grupo.add(cristal);
+
+    // Resplandor morado sobre la plataforma
+    const suelo = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 3.4),
+        new THREE.MeshBasicMaterial({
+            map: texturaResplandor,
+            color: COLOR_GEMA,
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            fog: false,
+            toneMapped: false
+        })
+    );
+
+    suelo.rotation.x = -Math.PI / 2;
+    suelo.position.set(0, 0.2, z);
+    grupo.add(suelo);
+
+    gemas.push({
+        numero,
+        cristal,
+        halo,
+        suelo,
+        z,
+        recogida: false
+    });
+}
 
 const ALTO_TROFEO = 2.2;       // altura de la imagen del trofeo en el juego
 const ALTURA_TROFEO = 1.7;     // a que altura flota
@@ -1423,19 +1541,6 @@ function construirTramo(tramo) {
                 }
             }
 
-            // Franjas luminosas de carretera
-            if (tipo === "carretera") {
-                for (let x = -21; x <= 21; x += 4) {
-                    grupo.add(
-                        caja(
-                            1.5, 0.025, 0.07,
-                            M.cian,
-                            x, -0.035, z + 0.48
-                        )
-                    );
-                }
-            }
-
             // Iluminacion de checkpoints
             if (tipo === "checkpoint") {
                 for (const x of [-6, 6]) {
@@ -1560,7 +1665,7 @@ function limpiarProgreso() {
     filasAgua.clear();
 
     vehiculos.length = 0;
-    plataformas.length = 0;
+    troncos.length = 0;
     sierras.length = 0;
     gemas.length = 0;
 
@@ -1650,6 +1755,7 @@ function recogerGema(gema) {
 
     gema.recogida = true;
     gema.cristal.visible = false;
+    gema.suelo.visible = false;
 
     gemasRecogidas++;
     puntos += 100;
@@ -1658,7 +1764,7 @@ function recogerGema(gema) {
 
     crearParticulas(
         new THREE.Vector3(0, 0, gema.z),
-        0x25eaff
+        0x9c3dff
     );
 
     sonido(750, 0.25);
@@ -1718,7 +1824,7 @@ window.addEventListener("keydown", e => {
         astro.position.y <= alturaSuelo(
             astro.position.x,
             astro.position.z
-        ) + 0.15
+        ) + 0.01
     ) {
         velocidadVertical = CONFIG.salto;
         reproducirSfx(SONIDOS.salto);
@@ -2024,29 +2130,29 @@ function actualizarJugador(dt) {
         brazoD.rotation.x = 0;
     }
 
-    // Gravedad y salto (el suelo sube si hay una plataforma debajo)
+    // Gravedad y salto (el suelo sube si hay un tronco debajo)
     const suelo = alturaSuelo(
         astro.position.x,
         astro.position.z
     );
 
-    if (
-        velocidadVertical <= 0 &&
-        astro.position.y <= suelo + 0.12
-    ) {
-        // Esta sobre el piso o sobre una plataforma: se pega a ella
-        // (sube y baja con la plataforma)
+    // Si camina hacia un tronco, se sube encima
+    if (astro.position.y < suelo) {
         astro.position.y = suelo;
-        velocidadVertical = 0;
 
-    } else {
+        if (velocidadVertical < 0) {
+            velocidadVertical = 0;
+        }
+    }
+
+    if (
+        astro.position.y > suelo ||
+        velocidadVertical > 0
+    ) {
         velocidadVertical -= CONFIG.gravedad * dt;
         astro.position.y += velocidadVertical * dt;
 
-        if (
-            astro.position.y < suelo &&
-            velocidadVertical <= 0
-        ) {
+        if (astro.position.y < suelo) {
             astro.position.y = suelo;
             velocidadVertical = 0;
         }
@@ -2085,11 +2191,8 @@ function actualizarJugador(dt) {
 
 function actualizarMoviles(dt) {
 
-    // Plataformas galacticas (suben y bajan)
-    actualizarPlataformas();
-
-    // Vehiculos
-    for (const lista of [vehiculos]) {
+    // Vehiculos y troncos
+    for (const lista of [vehiculos, troncos]) {
         for (const obj of lista) {
             obj.mesh.position.x +=
                 obj.velocidad * dt;
@@ -2178,9 +2281,24 @@ function comprobarColisiones(dt) {
     // -----------------------------------------------
 
     if (filasAgua.has(Math.round(z))) {
-        const soporte = buscarPlataforma(x, z);
+        const soporte = buscarTronco(x, z);
 
-        // Pierde una vida si cae al agua (o si la plataforma se hunde)
+        // Astro se desplaza junto al tronco
+        if (
+            soporte &&
+            astro.position.y < ALTURA_TRONCO + 0.15
+        ) {
+            astro.position.x +=
+                soporte.velocidad * dt;
+
+            astro.position.x = THREE.MathUtils.clamp(
+                astro.position.x,
+                -CONFIG.limiteX,
+                CONFIG.limiteX
+            );
+        }
+
+        // Pierde una vida si cae al agua
         if (
             !soporte &&
             astro.position.y < 0.15
@@ -2315,11 +2433,13 @@ function actualizarDecoracion(dt) {
 
     for (const gema of gemas) {
         if (!gema.recogida) {
-            gema.cristal.rotation.y += dt * 1.6;
-
             gema.cristal.position.y =
-                1.35 +
+                ALTURA_GEMA +
                 Math.sin(relojMundo * 2) * 0.15;
+
+            // El resplandor morado late
+            const tam = 4 + Math.sin(relojMundo * 3) * 0.4;
+            gema.halo.scale.set(tam, tam, 1);
         }
     }
 
